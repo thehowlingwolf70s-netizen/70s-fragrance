@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Panel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Admin Panel</h1>
+    <div id="deniedMsg" style="display:none; text-align:center;"><p>Access denied — admin only.</p></div>
+
+    <div id="adminArea" style="display:none;">
+      <div class="form-box">
+        <h2 id="formTitle">Add Product</h2>
+        <input id="prodName" placeholder="Product name"><br><br>
+        <input id="prodSizes" placeholder="1.5:320,3:380,5:620,10:1130,15:1700,30:3270"><br><br>
+        <input id="prodImage" placeholder="images/versace-eros.jpg (optional)"><br><br>
+        <button onclick="saveProduct()">Save Product</button>
+        <button id="cancelEditBtn" onclick="cancelEdit()" style="display:none;">Cancel Edit</button>
+        <p class="msg" id="prodMsg"></p>
+      </div>
+
+      <h2>All Products</h2>
+      <div id="productList"></div>
+
+      <h2>All Orders</h2>
+      <div id="orderList"></div>
+    </div>
+  </div>
+
+  <script>
+    let editingId = null;
+
+    async function checkAdmin() {
+      const res = await fetch("/api/admin/check");
+      const data = await res.json();
+      if (!data.isAdmin) {
+        document.getElementById("deniedMsg").style.display = "block";
+        return;
+      }
+      document.getElementById("adminArea").style.display = "block";
+      loadProducts();
+      loadOrders();
+    }
+
+    function parseSizes(text) {
+      return text.split(",").map(pair => {
+        const [ml, price] = pair.split(":");
+        return [parseFloat(ml), parseInt(price)];
+      });
+    }
+
+    function sizesToText(sizes) {
+      return sizes.map(s => s[0] + ":" + s[1]).join(",");
+    }
+
+    async function saveProduct() {
+      const name = document.getElementById("prodName").value;
+      const sizes = parseSizes(document.getElementById("prodSizes").value);
+      const image = document.getElementById("prodImage").value;
+      if (editingId) {
+        await fetch("/api/admin/products/" + editingId, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, sizes, image })
+        });
+        document.getElementById("prodMsg").textContent = "Product updated.";
+      } else {
+        await fetch("/api/admin/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, sizes, image })
+        });
+        document.getElementById("prodMsg").textContent = "Product added.";
+      }
+      cancelEdit();
+      loadProducts();
+    }
+
+    function editProduct(id, name, sizes, image) {
+      editingId = id;
+      document.getElementById("formTitle").textContent = "Edit Product";
+      document.getElementById("prodName").value = name;
+      document.getElementById("prodSizes").value = sizesToText(sizes);
+      document.getElementById("prodImage").value = image || "";
+      document.getElementById("cancelEditBtn").style.display = "inline";
+    }
+
+    function cancelEdit() {
+      editingId = null;
+      document.getElementById("formTitle").textContent = "Add Product";
+      document.getElementById("prodName").value = "";
+      document.getElementById("prodSizes").value = "";
+      document.getElementById("prodImage").value = "";
+      document.getElementById("cancelEditBtn").style.display = "none";
+    }
+
+    async function deleteProduct(id) {
+      await fetch("/api/admin/products/" + id, { method: "DELETE" });
+      loadProducts();
+    }
+
+    async function loadProducts() {
+      const res = await fetch("/api/products");
+      const products = await res.json();
+      const container = document.getElementById("productList");
+      let html = "";
+      for (const p of products) {
+        html += `<div class="card">
+          <h3>${p.name}</h3>
+          <p style="font-size:0.8rem;color:#b9a793;">${sizesToText(p.sizes)}</p>
+          <p style="font-size:0.75rem;color:#7a6a5a;">${p.image || "no image"}</p>
+          <button onclick='editProduct(${p.id}, ${JSON.stringify(p.name)}, ${JSON.stringify(p.sizes)}, ${JSON.stringify(p.image)})'>Edit</button>
+          <button onclick="deleteProduct(${p.id})">Delete</button>
+        </div>`;
+      }
+      container.innerHTML = `<div class="grid">${html}</div>`;
+    }
+
+    async function loadOrders() {
+      const res = await fetch("/api/admin/orders");
+      const orders = await res.json();
+      const container = document.getElementById("orderList");
+      let html = "";
+      for (const o of orders) {
+        html += `<div class="order-card">
+          <h3>Order #${o.id} — ${o.customerName} — ${o.total} Tk — <span class="status-${o.status}">${o.status.toUpperCase()}</span></h3>`;
+        for (const item of o.items) {
+          html += `<p>${item.product_name} (${item.ml}ml) - ${item.price} Tk</p>`;
+        }
+        html += `</div>`;
+      }
+      container.innerHTML = html;
+    }
+
+    checkAdmin();
+  </script>
+</body>
+</html>

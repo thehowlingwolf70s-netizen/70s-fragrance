@@ -1,0 +1,136 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: radial-gradient(ellipse at top, #160a0d, #0b0507);
+  color: #f3e9dc;
+  font-family: 'Poppins', sans-serif;
+  min-height: 100vh;
+}
+
+h1, h2, h3 {
+  font-family: 'Cormorant Garamond', serif;
+  color: #e8c968;
+}
+
+a { color: #d4af37; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* HEADER */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 30px;
+  border-bottom: 1px solid #3a2a20;
+  background: rgba(11,5,7,0.9);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+header img { height: 50px; }
+header nav a { margin-left: 20px; font-size: 0.9rem; }
+
+/* HERO */
+.hero {
+  text-align: center;
+  padding: 70px 20px;
+  background: linear-gradient(rgba(11,5,7,0.6), rgba(11,5,7,0.9)), 
+              radial-gradient(ellipse at center, #2a1512, #0b0507);
+}
+.hero h1 { font-size: 3rem; margin-bottom: 10px; }
+.hero p { color: #b9a793; margin-bottom: 25px; font-size: 1.05rem; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 30px 20px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.card {
+  background: #1a0f12;
+  border: 1px solid #3a2a20;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+.card:hover { transform: translateY(-4px); }
+
+.product-img {
+  width: 100%;
+  height: 200px;
+  background: linear-gradient(135deg, #2a1810, #1a0f12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  border-bottom: 1px solid #3a2a20;
+}
+.product-img img { width: 100%; height: 100%; object-fit: cover; }
+
+.card-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.card h3 { font-size: 1.05rem; min-height: 2.4em; }
+
+select, input, textarea {
+  background: #100608;
+  color: #f3e9dc;
+  border: 1px solid #3a2a20;
+  border-radius: 6px;
+  padding: 10px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+button {
+  background: #d4af37;
+  color: #1a0f12;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+}
+button:hover { background: #e8c968; }
+
+.cart-box, .form-box {
+  background: #150c0e;
+  border: 1px solid #3a2a20;
+  border-radius: 10px;
+  padding: 24px;
+  max-width: 480px;
+  margin: 0 auto 30px;
+}
+
+.cart-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #3a2a20;
+  font-size: 0.9rem;
+}
+
+.total { text-align: right; color: #e8c968; font-size: 1.1rem; margin: 15px 0; }
+.msg { text-align: center; color: #e8c968; margin-top: 10px; }
+
+.order-card {
+  background: #150c0e;
+  border: 1px solid #3a2a20;
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 15px;
+}
+
+.status-paid { color: #7fd88f; font-weight: 600; }
+.status-pending { color: #e8c968; font-weight: 600; }
+.status-failed, .status-cancelled { color: #d87f7f; font-weight: 600; }

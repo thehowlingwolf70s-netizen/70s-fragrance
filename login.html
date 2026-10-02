@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Login</h1>
+    <div class="form-box">
+      <input id="email" placeholder="Email"><br><br>
+      <input id="password" type="password" placeholder="Password"><br><br>
+      <button onclick="login()" style="width:100%;">Login</button>
+      <p class="msg" id="msg"></p>
+    </div>
+  </div>
+
+  <script>
+    async function login() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      document.getElementById("msg").textContent = data.success ? "Welcome, " + data.name + "!" : data.message;
+    }
+  </script>
+</body>
+</html>

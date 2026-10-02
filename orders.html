@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Orders</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>My Orders</h1>
+    <div id="orderList"></div>
+  </div>
+
+  <script>
+    async function loadOrders() {
+      const res = await fetch("/api/orders");
+      if (res.status === 401) {
+        document.getElementById("orderList").innerHTML = "<p style='text-align:center;'>Please log in to see your orders.</p>";
+        return;
+      }
+      const orders = await res.json();
+      const container = document.getElementById("orderList");
+      if (orders.length === 0) {
+        container.innerHTML = "<p style='text-align:center;'>No orders yet.</p>";
+        return;
+      }
+      let html = "";
+      for (const o of orders) {
+        html += `<div class="order-card">
+          <h3>Order #${o.id} - ${o.total} Tk - <span class="status-${o.status}">${o.status.toUpperCase()}</span></h3>`;
+        for (const item of o.items) {
+          html += `<p>${item.product_name} (${item.ml}ml) - ${item.price} Tk</p>`;
+        }
+        html += `</div>`;
+      }
+      container.innerHTML = html;
+    }
+    loadOrders();
+  </script>
+</body>
+</html>

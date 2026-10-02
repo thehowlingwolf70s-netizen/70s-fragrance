@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Shop — 70S Fragrance</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <img src="logo.png" alt="70S Fragrance">
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="products.html">Shop</a>
+      <a href="login.html">Login</a>
+      <a href="orders.html">My Orders</a>
+    </nav>
+  </header>
+
+  <div class="container">
+    <h1 style="text-align:center;">Our Fragrances</h1>
+    <div class="grid" id="productList"></div>
+
+    <div class="cart-box">
+      <h2>Your Cart</h2>
+      <div id="cartList"></div>
+      <div class="total" id="cartTotal">Total: 0 Tk</div>
+
+      <h3>Delivery Details</h3>
+      <input id="custName" placeholder="Full Name"><br><br>
+      <input id="custEmail" placeholder="Email"><br><br>
+      <input id="custPhone" placeholder="Phone"><br><br>
+      <input id="custAddr" placeholder="Address"><br><br>
+      <button onclick="checkout()" style="width:100%;">Pay Now</button>
+      <p class="msg" id="checkoutMsg"></p>
+    </div>
+  </div>
+
+  <script>
+    let products = [];
+    let cart = [];
+
+    async function loadProducts() {
+      const res = await fetch("/api/products");
+      products = await res.json();
+      renderProducts();
+    }
+
+    function renderProducts() {
+      const container = document.getElementById("productList");
+      let html = "";
+      for (let i = 0; i < products.length; i++) {
+        const p = products[i];
+        let options = "";
+        for (let s = 0; s < p.sizes.length; s++) {
+          options += `<option value="${s}">${p.sizes[s][0]}ml - ${p.sizes[s][1]} Tk</option>`;
+        }
+        const imgTag = p.image
+          ? `<img src="${p.image}" alt="${p.name}">`
+          : `&#127871;`;
+        html += `<div class="card">
+          <div class="product-img">${imgTag}</div>
+          <div class="card-body">
+            <h3>${p.name}</h3>
+            <select id="size-${i}">${options}</select>
+            <button onclick="addToCart(${i})">Add to Cart</button>
+          </div>
+        </div>`;
+      }
+      container.innerHTML = html;
+    }
+
+    function addToCart(index) {
+      const p = products[index];
+      const sizeIndex = document.getElementById("size-" + index).value;
+      const chosen = p.sizes[sizeIndex];
+      cart.push({ name: p.name, ml: chosen[0], price: chosen[1] });
+      renderCart();
+    }
+
+    function removeFromCart(cartIndex) {
+      cart.splice(cartIndex, 1);
+      renderCart();
+    }
+
+    function renderCart() {
+      const cartContainer = document.getElementById("cartList");
+      let html = "";
+      let total = 0;
+      for (let i = 0; i < cart.length; i++) {
+        html += `<div class="cart-item"><span>${cart[i].name} (${cart[i].ml}ml)</span>
+          <span>${cart[i].price} Tk <button onclick="removeFromCart(${i})">X</button></span></div>`;
+        total += cart[i].price;
+      }
+      cartContainer.innerHTML = html;
+      document.getElementById("cartTotal").textContent = "Total: " + total + " Tk";
+    }
+
+    async function checkout() {
+      if (cart.length === 0) {
+        document.getElementById("checkoutMsg").textContent = "Your cart is empty.";
+        return;
+      }
+      const custName = document.getElementById("custName").value;
+      const custEmail = document.getElementById("custEmail").value;
+      const custPhone = document.getElementById("custPhone").value;
+      const custAddr = document.getElementById("custAddr").value;
+
+      const res = await fetch("/api/initiate-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cart, custName, custEmail, custPhone, custAddr })
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = data.url;
+      } else {
+        document.getElementById("checkoutMsg").textContent = data.message;
+      }
+    }
+
+    loadProducts();
+  </script>
+</body>
+</html>
