@@ -3,7 +3,7 @@ const session = require("express-session");
 const bcrypt = require("bcrypt");
 const axios = require("axios");
 const qs = require("querystring");
-const db = require("./db");
+const pool = require("./db");
 const app = express();
 
 const STORE_ID = "70sfr6abd68b689aef";
@@ -19,15 +19,15 @@ app.use(session({
   saveUninitialized: false
 }));
 
-function requireAdmin(req, res, next) {
+async function requireAdmin(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ success: false, message: "Please log in." });
-  const user = db.prepare("SELECT is_admin FROM users WHERE id = ?").get(req.session.userId);
-  if (!user || !user.is_admin) return res.status(403).json({ success: false, message: "Admin access only." });
+  const { rows } = await pool.query("SELECT is_admin FROM users WHERE id = $1", [req.session.userId]);
+  if (!rows[0] || !rows[0].is_admin) return res.status(403).json({ success: false, message: "Admin access only." });
   next();
 }
 
-app.get("/api/products", (req, res) => {
-  const rows = db.prepare("SELECT * FROM products").all();
+app.get("/api/products", async (req, res) => {
+  const { rows } = await pool.query("SELECT * FROM products ORDER BY id");
   const products = rows.map(r => ({ id: r.id, name: r.name, sizes: JSON.parse(r.sizes), image: r.image }));
   res.json(products);
 });
@@ -36,7 +36,7 @@ app.post("/api/signup", async (req, res) => {
   const { name, email, password } = req.body;
   const hashed = await bcrypt.hash(password, 10);
   try {
-    db.prepare("INSERT INTO users (name, email, password) VALUES (?, ?, ?)").run(name, email, hashed);
+    await pool.query("INSERT INTO users (name, email, password) VALUES ($1, $2, $3)", [name, email, hashed]);
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ success: false, message: "Email already registered." });
@@ -45,7 +45,8 @@ app.post("/api/signup", async (req, res) => {
 
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+  const { rows } = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+  const user = rows[0];
   if (!user) return res.status(400).json({ success: false, message: "No account found." });
   const match = await bcrypt.compare(password, user.password);
   if (!match) return res.status(400).json({ success: false, message: "Wrong password." });
@@ -62,15 +63,16 @@ app.get("/api/me", (req, res) => {
   }
 });
 
-app.get("/api/orders", (req, res) => {
+app.get("/api/orders", async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ success: false, message: "Please log in first." });
   }
-  const orders = db.prepare("SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC").all(req.session.userId);
-  const full = orders.map(o => {
-    const items = db.prepare("SELECT * FROM order_items WHERE order_id = ?").all(o.id);
-    return { ...o, items };
-  });
+  const { rows: orders } = await pool.query("SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC", [req.session.userId]);
+  const full = [];
+  for (const o of orders) {
+    const { rows: items } = await pool.query("SELECT * FROM order_items WHERE order_id = $1", [o.id]);
+    full.push({ ...o, items });
+  }
   res.json(full);
 });
 
@@ -84,15 +86,21 @@ app.post("/api/initiate-payment", async (req, res) => {
   }
   const total = cart.reduce((sum, item) => sum + item.price, 0);
 
-  const orderResult = db.prepare("INSERT INTO orders (user_id, total, status) VALUES (?, ?, 'pending')").run(req.session.userId, total);
-  const orderId = orderResult.lastInsertRowid;
-  const insertItem = db.prepare("INSERT INTO order_items (order_id, product_name, ml, price) VALUES (?, ?, ?, ?)");
+  const orderResult = await pool.query(
+    "INSERT INTO orders (user_id, total, status) VALUES ($1, $2, 'pending') RETURNING id",
+    [req.session.userId, total]
+  );
+  const orderId = orderResult.rows[0].id;
+
   for (const item of cart) {
-    insertItem.run(orderId, item.name, item.ml, item.price);
+    await pool.query(
+      "INSERT INTO order_items (order_id, product_name, ml, price) VALUES ($1, $2, $3, $4)",
+      [orderId, item.name, item.ml, item.price]
+    );
   }
 
   const tranId = "70SFRAG_" + orderId + "_" + Date.now();
-  db.prepare("UPDATE orders SET tran_id = ? WHERE id = ?").run(tranId, orderId);
+  await pool.query("UPDATE orders SET tran_id = $1 WHERE id = $2", [tranId, orderId]);
 
   const payload = {
     store_id: STORE_ID,
@@ -141,7 +149,7 @@ app.post("/api/payment/success", async (req, res) => {
       params: { val_id, store_id: STORE_ID, store_passwd: STORE_PASSWORD, format: "json" }
     });
     if (check.data && (check.data.status === "VALID" || check.data.status === "VALIDATED")) {
-      db.prepare("UPDATE orders SET status = 'paid' WHERE tran_id = ?").run(tran_id);
+      await pool.query("UPDATE orders SET status = 'paid' WHERE tran_id = $1", [tran_id]);
       return res.redirect("/payment-success.html?tran=" + tran_id);
     }
     return res.redirect("/payment-fail.html?tran=" + tran_id);
@@ -150,51 +158,58 @@ app.post("/api/payment/success", async (req, res) => {
   }
 });
 
-app.post("/api/payment/fail", (req, res) => {
+app.post("/api/payment/fail", async (req, res) => {
   const { tran_id } = req.body;
-  db.prepare("UPDATE orders SET status = 'failed' WHERE tran_id = ?").run(tran_id);
+  await pool.query("UPDATE orders SET status = 'failed' WHERE tran_id = $1", [tran_id]);
   res.redirect("/payment-fail.html?tran=" + tran_id);
 });
 
-app.post("/api/payment/cancel", (req, res) => {
+app.post("/api/payment/cancel", async (req, res) => {
   const { tran_id } = req.body;
-  db.prepare("UPDATE orders SET status = 'cancelled' WHERE tran_id = ?").run(tran_id);
+  await pool.query("UPDATE orders SET status = 'cancelled' WHERE tran_id = $1", [tran_id]);
   res.redirect("/payment-cancel.html?tran=" + tran_id);
 });
 
-app.get("/api/admin/check", (req, res) => {
+app.get("/api/admin/check", async (req, res) => {
   if (!req.session.userId) return res.json({ isAdmin: false });
-  const user = db.prepare("SELECT is_admin FROM users WHERE id = ?").get(req.session.userId);
-  res.json({ isAdmin: !!(user && user.is_admin) });
+  const { rows } = await pool.query("SELECT is_admin FROM users WHERE id = $1", [req.session.userId]);
+  res.json({ isAdmin: !!(rows[0] && rows[0].is_admin) });
 });
 
-app.get("/api/admin/orders", requireAdmin, (req, res) => {
-  const orders = db.prepare(`
-    SELECT orders.*, users.name AS customerName, users.email AS customerEmail
+app.get("/api/admin/orders", requireAdmin, async (req, res) => {
+  const { rows: orders } = await pool.query(`
+    SELECT orders.*, users.name AS "customerName", users.email AS "customerEmail"
     FROM orders JOIN users ON orders.user_id = users.id
     ORDER BY orders.created_at DESC
-  `).all();
-  const full = orders.map(o => {
-    const items = db.prepare("SELECT * FROM order_items WHERE order_id = ?").all(o.id);
-    return { ...o, items };
-  });
+  `);
+  const full = [];
+  for (const o of orders) {
+    const { rows: items } = await pool.query("SELECT * FROM order_items WHERE order_id = $1", [o.id]);
+    full.push({ ...o, items });
+  }
   res.json(full);
 });
 
-app.post("/api/admin/products", requireAdmin, (req, res) => {
+app.post("/api/admin/products", requireAdmin, async (req, res) => {
   const { name, sizes, image } = req.body;
-  const result = db.prepare("INSERT INTO products (name, sizes, image) VALUES (?, ?, ?)").run(name, JSON.stringify(sizes), image || null);
-  res.json({ success: true, id: result.lastInsertRowid });
+  const result = await pool.query(
+    "INSERT INTO products (name, sizes, image) VALUES ($1, $2, $3) RETURNING id",
+    [name, JSON.stringify(sizes), image || null]
+  );
+  res.json({ success: true, id: result.rows[0].id });
 });
 
-app.put("/api/admin/products/:id", requireAdmin, (req, res) => {
+app.put("/api/admin/products/:id", requireAdmin, async (req, res) => {
   const { name, sizes, image } = req.body;
-  db.prepare("UPDATE products SET name = ?, sizes = ?, image = ? WHERE id = ?").run(name, JSON.stringify(sizes), image || null, req.params.id);
+  await pool.query(
+    "UPDATE products SET name = $1, sizes = $2, image = $3 WHERE id = $4",
+    [name, JSON.stringify(sizes), image || null, req.params.id]
+  );
   res.json({ success: true });
 });
 
-app.delete("/api/admin/products/:id", requireAdmin, (req, res) => {
-  db.prepare("DELETE FROM products WHERE id = ?").run(req.params.id);
+app.delete("/api/admin/products/:id", requireAdmin, async (req, res) => {
+  await pool.query("DELETE FROM products WHERE id = $1", [req.params.id]);
   res.json({ success: true });
 });
 
