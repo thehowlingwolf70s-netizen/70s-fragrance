@@ -1,22 +1,26 @@
+require("dotenv").config();
 const express = require("express");
 const session = require("express-session");
+const pgSession = require("connect-pg-simple")(session);
 const bcrypt = require("bcrypt");
 const axios = require("axios");
 const qs = require("querystring");
 const pool = require("./db");
 const app = express();
 
-const STORE_ID = "70sfr6abd68b689aef";
-const STORE_PASSWORD = "se0zIfT2o6k5";
-const BASE_URL = "http://localhost:3000";
+const STORE_ID = process.env.SSLCZ_STORE_ID;
+const STORE_PASSWORD = process.env.SSLCZ_STORE_PASSWORD;
+const BASE_URL = process.env.BASE_URL;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
 app.use(session({
-  secret: "70sfragrance-secret-key",
+  store: new pgSession({ pool: pool, createTableIfMissing: true }),
+  secret: process.env.SESSION_SECRET,
   resave: false,
-  saveUninitialized: false
+  saveUninitialized: false,
+  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
 }));
 
 async function requireAdmin(req, res, next) {
