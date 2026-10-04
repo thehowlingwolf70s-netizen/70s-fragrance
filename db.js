@@ -15,6 +15,9 @@ async function setup() {
       image TEXT
     )
   `);
+  try { await pool.query("ALTER TABLE products ADD COLUMN season TEXT DEFAULT 'All Season'"); } catch (e) {}
+  try { await pool.query("ALTER TABLE products ADD COLUMN gender TEXT DEFAULT 'Unisex'"); } catch (e) {}
+  try { await pool.query("ALTER TABLE products ADD COLUMN in_stock INTEGER DEFAULT 1"); } catch (e) {}
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -34,6 +37,10 @@ async function setup() {
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
+  try { await pool.query("ALTER TABLE orders ADD COLUMN cust_name TEXT"); } catch (e) {}
+  try { await pool.query("ALTER TABLE orders ADD COLUMN cust_email TEXT"); } catch (e) {}
+  try { await pool.query("ALTER TABLE orders ADD COLUMN cust_phone TEXT"); } catch (e) {}
+  try { await pool.query("ALTER TABLE orders ADD COLUMN cust_addr TEXT"); } catch (e) {}
   await pool.query(`
     CREATE TABLE IF NOT EXISTS order_items (
       id SERIAL PRIMARY KEY,

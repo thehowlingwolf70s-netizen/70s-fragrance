@@ -1,12 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Admin Panel</title>
+  <title>Admin Panel — 70S Fragrance</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header>
+    <img src="logo.png" alt="70S Fragrance">
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="products.html">Shop</a>
+      <a href="login.html">Login</a>
+      <a href="orders.html">My Orders</a>
+    </nav>
+  </header>
+
   <div class="container">
-    <h1>Admin Panel</h1>
+    <h1 style="text-align:center;">Admin Panel</h1>
     <div id="deniedMsg" style="display:none; text-align:center;"><p>Access denied — admin only.</p></div>
 
     <div id="adminArea" style="display:none;">
@@ -14,7 +24,21 @@
         <h2 id="formTitle">Add Product</h2>
         <input id="prodName" placeholder="Product name"><br><br>
         <input id="prodSizes" placeholder="1.5:320,3:380,5:620,10:1130,15:1700,30:3270"><br><br>
-        <input id="prodImage" placeholder="images/versace-eros.jpg (optional)"><br><br>
+        <input id="prodImage" placeholder="images/versace-eros.jpeg (optional)"><br><br>
+        <select id="prodSeason">
+          <option value="All Season">All Season</option>
+          <option value="Summer">Summer</option>
+          <option value="Winter">Winter</option>
+        </select><br><br>
+        <select id="prodGender">
+          <option value="Unisex">Unisex</option>
+          <option value="For Him">For Him</option>
+          <option value="For Her">For Her</option>
+        </select><br><br>
+        <label style="display:block; margin-bottom:12px; font-size:0.85rem; color:#b9a793;">
+          <input type="checkbox" id="prodInStock" checked style="width:auto; display:inline-block; margin-right:8px;">
+          In Stock
+        </label>
         <button onclick="saveProduct()">Save Product</button>
         <button id="cancelEditBtn" onclick="cancelEdit()" style="display:none;">Cancel Edit</button>
         <p class="msg" id="prodMsg"></p>
@@ -27,6 +51,12 @@
       <div id="orderList"></div>
     </div>
   </div>
+
+  <footer>
+    <div class="footer-brand">70S Fragrance</div>
+    <p>Signature scents, decanted with care.</p>
+    <p style="margin-top:10px;">&copy; 2026 70S Fragrance. All rights reserved.</p>
+  </footer>
 
   <script>
     let editingId = null;
@@ -58,18 +88,22 @@
       const name = document.getElementById("prodName").value;
       const sizes = parseSizes(document.getElementById("prodSizes").value);
       const image = document.getElementById("prodImage").value;
+      const season = document.getElementById("prodSeason").value;
+      const gender = document.getElementById("prodGender").value;
+      const in_stock = document.getElementById("prodInStock").checked;
+
       if (editingId) {
         await fetch("/api/admin/products/" + editingId, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, sizes, image })
+          body: JSON.stringify({ name, sizes, image, season, gender, in_stock })
         });
         document.getElementById("prodMsg").textContent = "Product updated.";
       } else {
         await fetch("/api/admin/products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, sizes, image })
+          body: JSON.stringify({ name, sizes, image, season, gender, in_stock })
         });
         document.getElementById("prodMsg").textContent = "Product added.";
       }
@@ -77,12 +111,15 @@
       loadProducts();
     }
 
-    function editProduct(id, name, sizes, image) {
+    function editProduct(id, name, sizes, image, season, gender, in_stock) {
       editingId = id;
       document.getElementById("formTitle").textContent = "Edit Product";
       document.getElementById("prodName").value = name;
       document.getElementById("prodSizes").value = sizesToText(sizes);
       document.getElementById("prodImage").value = image || "";
+      document.getElementById("prodSeason").value = season || "All Season";
+      document.getElementById("prodGender").value = gender || "Unisex";
+      document.getElementById("prodInStock").checked = !!in_stock;
       document.getElementById("cancelEditBtn").style.display = "inline";
     }
 
@@ -92,6 +129,9 @@
       document.getElementById("prodName").value = "";
       document.getElementById("prodSizes").value = "";
       document.getElementById("prodImage").value = "";
+      document.getElementById("prodSeason").value = "All Season";
+      document.getElementById("prodGender").value = "Unisex";
+      document.getElementById("prodInStock").checked = true;
       document.getElementById("cancelEditBtn").style.display = "none";
     }
 
@@ -109,8 +149,8 @@
         html += `<div class="card">
           <h3>${p.name}</h3>
           <p style="font-size:0.8rem;color:#b9a793;">${sizesToText(p.sizes)}</p>
-          <p style="font-size:0.75rem;color:#7a6a5a;">${p.image || "no image"}</p>
-          <button onclick='editProduct(${p.id}, ${JSON.stringify(p.name)}, ${JSON.stringify(p.sizes)}, ${JSON.stringify(p.image)})'>Edit</button>
+          <p style="font-size:0.75rem;color:#7a6a5a;">${p.image || "no image"} | ${p.season} | ${p.gender} | ${p.in_stock ? "In Stock" : "Out of Stock"}</p>
+          <button onclick='editProduct(${p.id}, ${JSON.stringify(p.name)}, ${JSON.stringify(p.sizes)}, ${JSON.stringify(p.image)}, ${JSON.stringify(p.season)}, ${JSON.stringify(p.gender)}, ${p.in_stock})'>Edit</button>
           <button onclick="deleteProduct(${p.id})">Delete</button>
         </div>`;
       }

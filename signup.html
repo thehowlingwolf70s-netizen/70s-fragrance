@@ -1,12 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sign Up</title>
+  <title>Sign Up — 70S Fragrance</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header>
+    <img src="logo.png" alt="70S Fragrance">
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="products.html">Shop</a>
+      <a href="login.html">Login</a>
+      <a href="orders.html">My Orders</a>
+    </nav>
+  </header>
+
   <div class="container">
-    <h1>Create Account</h1>
+    <h1 style="text-align:center;">Create Account</h1>
     <div class="form-box">
       <input id="name" placeholder="Name"><br><br>
       <input id="email" placeholder="Email"><br><br>
@@ -15,6 +25,12 @@
       <p class="msg" id="msg"></p>
     </div>
   </div>
+
+  <footer>
+    <div class="footer-brand">70S Fragrance</div>
+    <p>Signature scents, decanted with care.</p>
+    <p style="margin-top:10px;">&copy; 2026 70S Fragrance. All rights reserved.</p>
+  </footer>
 
   <script>
     async function signup() {

@@ -1,14 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>My Orders</title>
+  <title>My Orders — 70S Fragrance</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header>
+    <img src="logo.png" alt="70S Fragrance">
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="products.html">Shop</a>
+      <a href="login.html">Login</a>
+      <a href="orders.html">My Orders</a>
+    </nav>
+  </header>
+
   <div class="container">
-    <h1>My Orders</h1>
+    <h1 style="text-align:center;">My Orders</h1>
     <div id="orderList"></div>
   </div>
+
+  <footer>
+    <div class="footer-brand">70S Fragrance</div>
+    <p>Signature scents, decanted with care.</p>
+    <p style="margin-top:10px;">&copy; 2026 70S Fragrance. All rights reserved.</p>
+  </footer>
 
   <script>
     async function loadOrders() {

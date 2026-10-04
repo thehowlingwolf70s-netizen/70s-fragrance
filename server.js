@@ -3,14 +3,19 @@ const express = require("express");
 const session = require("express-session");
 const pgSession = require("connect-pg-simple")(session);
 const bcrypt = require("bcrypt");
-const axios = require("axios");
-const qs = require("querystring");
+const nodemailer = require("nodemailer");
 const pool = require("./db");
 const app = express();
 
-const STORE_ID = process.env.SSLCZ_STORE_ID;
-const STORE_PASSWORD = process.env.SSLCZ_STORE_PASSWORD;
-const BASE_URL = process.env.BASE_URL;
+const BKASH_NUMBER = "01959350071";
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -32,7 +37,10 @@ async function requireAdmin(req, res, next) {
 
 app.get("/api/products", async (req, res) => {
   const { rows } = await pool.query("SELECT * FROM products ORDER BY id");
-  const products = rows.map(r => ({ id: r.id, name: r.name, sizes: JSON.parse(r.sizes), image: r.image }));
+  const products = rows.map(r => ({
+    id: r.id, name: r.name, sizes: JSON.parse(r.sizes), image: r.image,
+    season: r.season, gender: r.gender, in_stock: r.in_stock
+  }));
   res.json(products);
 });
 
@@ -80,19 +88,24 @@ app.get("/api/orders", async (req, res) => {
   res.json(full);
 });
 
-app.post("/api/initiate-payment", async (req, res) => {
+app.post("/api/place-order", async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ success: false, message: "Please log in first." });
   }
-  const { cart, custName, custEmail, custPhone, custAddr } = req.body;
+  const { cart, custName, custEmail, custPhone, custAddr, txnId } = req.body;
   if (!cart || cart.length === 0) {
     return res.status(400).json({ success: false, message: "Cart is empty." });
   }
+  if (!custName || !custPhone || !custAddr) {
+    return res.status(400).json({ success: false, message: "Please fill in your name, phone, and address." });
+  }
+
   const total = cart.reduce((sum, item) => sum + item.price, 0);
 
   const orderResult = await pool.query(
-    "INSERT INTO orders (user_id, total, status) VALUES ($1, $2, 'pending') RETURNING id",
-    [req.session.userId, total]
+    `INSERT INTO orders (user_id, total, status, tran_id, cust_name, cust_email, cust_phone, cust_addr)
+     VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7) RETURNING id`,
+    [req.session.userId, total, txnId || null, custName, custEmail || null, custPhone, custAddr]
   );
   const orderId = orderResult.rows[0].id;
 
@@ -103,75 +116,42 @@ app.post("/api/initiate-payment", async (req, res) => {
     );
   }
 
-  const tranId = "70SFRAG_" + orderId + "_" + Date.now();
-  await pool.query("UPDATE orders SET tran_id = $1 WHERE id = $2", [tranId, orderId]);
+  const itemLines = cart.map(i => `- ${i.name} (${i.ml}ml) — ${i.price} Tk`).join("\n");
+  const emailBody = `
+Order #${orderId} received!
 
-  const payload = {
-    store_id: STORE_ID,
-    store_passwd: STORE_PASSWORD,
-    total_amount: total,
-    currency: "BDT",
-    tran_id: tranId,
-    success_url: BASE_URL + "/api/payment/success",
-    fail_url: BASE_URL + "/api/payment/fail",
-    cancel_url: BASE_URL + "/api/payment/cancel",
-    emi_option: 0,
-    cus_name: custName || "Customer",
-    cus_email: custEmail || "customer@example.com",
-    cus_add1: custAddr || "N/A",
-    cus_city: "Dhaka",
-    cus_postcode: "1000",
-    cus_country: "Bangladesh",
-    cus_phone: custPhone || "01700000000",
-    shipping_method: "NO",
-    num_of_item: cart.length,
-    product_name: cart.map(i => i.name).join(", "),
-    product_category: "Fragrance",
-    product_profile: "general"
-  };
+${itemLines}
+
+Total: ${total} Tk
+
+Payment: Please send ${total} Tk via bKash to ${BKASH_NUMBER} (Send Money) if you haven't already.
+Transaction ID provided: ${txnId || "(not provided — message us on WhatsApp once sent)"}
+
+Delivery to: ${custName}, ${custPhone}, ${custAddr}
+
+We'll confirm your order shortly. Thank you for shopping with 70S Fragrance!
+`;
 
   try {
-    const response = await axios.post(
-      "https://sandbox.sslcommerz.com/gwprocess/v4/api.php",
-      qs.stringify(payload),
-      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
-    );
-    if (response.data && response.data.GatewayPageURL) {
-      res.json({ success: true, url: response.data.GatewayPageURL });
-    } else {
-      res.status(400).json({ success: false, message: "Could not start payment.", details: response.data });
+    if (custEmail) {
+      await transporter.sendMail({
+        from: `"70S Fragrance" <${process.env.EMAIL_USER}>`,
+        to: custEmail,
+        subject: `Order #${orderId} Confirmation — 70S Fragrance`,
+        text: emailBody
+      });
     }
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Payment gateway error." });
-  }
-});
-
-app.post("/api/payment/success", async (req, res) => {
-  const { tran_id, val_id } = req.body;
-  try {
-    const check = await axios.get("https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php", {
-      params: { val_id, store_id: STORE_ID, store_passwd: STORE_PASSWORD, format: "json" }
+    await transporter.sendMail({
+      from: `"70S Fragrance Orders" <${process.env.EMAIL_USER}>`,
+      to: process.env.ADMIN_EMAIL,
+      subject: `New Order #${orderId} — ${total} Tk`,
+      text: emailBody
     });
-    if (check.data && (check.data.status === "VALID" || check.data.status === "VALIDATED")) {
-      await pool.query("UPDATE orders SET status = 'paid' WHERE tran_id = $1", [tran_id]);
-      return res.redirect("/payment-success.html?tran=" + tran_id);
-    }
-    return res.redirect("/payment-fail.html?tran=" + tran_id);
   } catch (err) {
-    return res.redirect("/payment-fail.html?tran=" + tran_id);
+    console.error("Email send error:", err.message);
   }
-});
 
-app.post("/api/payment/fail", async (req, res) => {
-  const { tran_id } = req.body;
-  await pool.query("UPDATE orders SET status = 'failed' WHERE tran_id = $1", [tran_id]);
-  res.redirect("/payment-fail.html?tran=" + tran_id);
-});
-
-app.post("/api/payment/cancel", async (req, res) => {
-  const { tran_id } = req.body;
-  await pool.query("UPDATE orders SET status = 'cancelled' WHERE tran_id = $1", [tran_id]);
-  res.redirect("/payment-cancel.html?tran=" + tran_id);
+  res.json({ success: true, orderId, total, bkashNumber: BKASH_NUMBER });
 });
 
 app.get("/api/admin/check", async (req, res) => {
@@ -182,7 +162,7 @@ app.get("/api/admin/check", async (req, res) => {
 
 app.get("/api/admin/orders", requireAdmin, async (req, res) => {
   const { rows: orders } = await pool.query(`
-    SELECT orders.*, users.name AS "customerName", users.email AS "customerEmail"
+    SELECT orders.*, users.name AS "accountName", users.email AS "accountEmail"
     FROM orders JOIN users ON orders.user_id = users.id
     ORDER BY orders.created_at DESC
   `);
@@ -194,20 +174,26 @@ app.get("/api/admin/orders", requireAdmin, async (req, res) => {
   res.json(full);
 });
 
+app.put("/api/admin/orders/:id/status", requireAdmin, async (req, res) => {
+  const { status } = req.body;
+  await pool.query("UPDATE orders SET status = $1 WHERE id = $2", [status, req.params.id]);
+  res.json({ success: true });
+});
+
 app.post("/api/admin/products", requireAdmin, async (req, res) => {
-  const { name, sizes, image } = req.body;
+  const { name, sizes, image, season, gender, in_stock } = req.body;
   const result = await pool.query(
-    "INSERT INTO products (name, sizes, image) VALUES ($1, $2, $3) RETURNING id",
-    [name, JSON.stringify(sizes), image || null]
+    "INSERT INTO products (name, sizes, image, season, gender, in_stock) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+    [name, JSON.stringify(sizes), image || null, season || "All Season", gender || "Unisex", in_stock ? 1 : 0]
   );
   res.json({ success: true, id: result.rows[0].id });
 });
 
 app.put("/api/admin/products/:id", requireAdmin, async (req, res) => {
-  const { name, sizes, image } = req.body;
+  const { name, sizes, image, season, gender, in_stock } = req.body;
   await pool.query(
-    "UPDATE products SET name = $1, sizes = $2, image = $3 WHERE id = $4",
-    [name, JSON.stringify(sizes), image || null, req.params.id]
+    "UPDATE products SET name = $1, sizes = $2, image = $3, season = $4, gender = $5, in_stock = $6 WHERE id = $7",
+    [name, JSON.stringify(sizes), image || null, season || "All Season", gender || "Unisex", in_stock ? 1 : 0, req.params.id]
   );
   res.json({ success: true });
 });

@@ -5,63 +5,148 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="announce-bar">Free delivery on orders over 2000 Tk</div>
   <header>
-    <img src="logo.png" alt="70S Fragrance">
-    <nav>
-      <a href="index.html">Home</a>
-      <a href="products.html">Shop</a>
-      <a href="login.html">Login</a>
-      <a href="orders.html">My Orders</a>
-    </nav>
+    <div class="nav-wrap">
+      <img class="logo" src="logo.png" alt="70S Fragrance">
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="products.html">Shop</a>
+        <a href="orders.html">My Orders</a>
+      </nav>
+      <div class="nav-icons">
+        <button onclick="toggleSearch()" title="Search">&#128269;</button>
+        <a href="login.html" title="Account">&#128100;</a>
+        <a href="#cartBox" title="Cart">&#128717;<span class="cart-badge" id="navCartCount">0</span></a>
+      </div>
+    </div>
+    <div id="searchBar"><input id="searchInput" placeholder="Search fragrances..." oninput="applyFilters()"></div>
   </header>
 
   <div class="container">
     <h1 style="text-align:center;">Our Fragrances</h1>
+
+    <div class="form-box" style="max-width:900px; display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+      <select id="filterGender" onchange="applyFilters()" style="flex:1; min-width:140px;">
+        <option value="">All</option>
+        <option value="For Him">For Him</option>
+        <option value="For Her">For Her</option>
+        <option value="Unisex">Unisex</option>
+      </select>
+      <select id="filterSeason" onchange="applyFilters()" style="flex:1; min-width:140px;">
+        <option value="">Any Season</option>
+        <option value="Summer">Summer</option>
+        <option value="Winter">Winter</option>
+        <option value="All Season">All Season</option>
+      </select>
+      <select id="filterSort" onchange="applyFilters()" style="flex:1; min-width:160px;">
+        <option value="">Sort by Price</option>
+        <option value="low-high">Price: Low to High</option>
+        <option value="high-low">Price: High to Low</option>
+      </select>
+      <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:#b9a793;">
+        <input type="checkbox" id="filterInStock" onchange="applyFilters()" style="width:auto;">
+        In Stock Only
+      </label>
+    </div>
+
     <div class="grid" id="productList"></div>
 
-    <div class="cart-box">
+    <div class="cart-box" id="cartBox">
       <h2>Your Cart</h2>
       <div id="cartList"></div>
       <div class="total" id="cartTotal">Total: 0 Tk</div>
 
+      <div class="msg" style="background:#100608; border:1px solid #3a2a20; border-radius:6px; padding:12px; text-align:left; margin-bottom:16px;">
+        Send your total via bKash (Send Money) to <b style="color:#e8c968;">01959350071</b>, then enter the Transaction ID below (or send it to us on WhatsApp afterward).
+      </div>
+
       <h3>Delivery Details</h3>
       <input id="custName" placeholder="Full Name"><br><br>
-      <input id="custEmail" placeholder="Email"><br><br>
+      <input id="custEmail" placeholder="Email (for confirmation)"><br><br>
       <input id="custPhone" placeholder="Phone"><br><br>
       <input id="custAddr" placeholder="Address"><br><br>
-      <button onclick="checkout()" style="width:100%;">Pay Now</button>
+      <input id="txnId" placeholder="bKash Transaction ID (optional)"><br><br>
+      <button onclick="placeOrder()" style="width:100%;">Place Order</button>
       <p class="msg" id="checkoutMsg"></p>
     </div>
   </div>
 
+  <footer>
+    <div class="footer-brand">70S Fragrance</div>
+    <p>Signature scents, decanted with care.</p>
+    <p style="margin-top:10px;">&copy; 2026 70S Fragrance. All rights reserved.</p>
+  </footer>
+
+  <script src="cart.js"></script>
   <script>
     let products = [];
-    let cart = [];
+    let cart = loadCartGlobal();
+
+    function toggleSearch() {
+      const el = document.getElementById("searchBar");
+      el.style.display = el.style.display === "block" ? "none" : "block";
+      if (el.style.display === "block") document.getElementById("searchInput").focus();
+    }
 
     async function loadProducts() {
       const res = await fetch("/api/products");
       products = await res.json();
-      renderProducts();
+
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("gender")) document.getElementById("filterGender").value = params.get("gender");
+      if (params.get("season")) document.getElementById("filterSeason").value = params.get("season");
+
+      applyFilters();
+      renderCart();
     }
 
-    function renderProducts() {
+    function getCheapestPrice(p) {
+      return Math.min(...p.sizes.map(s => s[1]));
+    }
+
+    function applyFilters() {
+      let list = [...products];
+      const gender = document.getElementById("filterGender").value;
+      const season = document.getElementById("filterSeason").value;
+      const sort = document.getElementById("filterSort").value;
+      const inStockOnly = document.getElementById("filterInStock").checked;
+      const searchEl = document.getElementById("searchInput");
+      const search = searchEl ? searchEl.value.trim().toLowerCase() : "";
+
+      if (gender) list = list.filter(p => p.gender === gender);
+      if (season) list = list.filter(p => p.season === season);
+      if (inStockOnly) list = list.filter(p => p.in_stock);
+      if (search) list = list.filter(p => p.name.toLowerCase().includes(search));
+      if (sort === "low-high") list.sort((a, b) => getCheapestPrice(a) - getCheapestPrice(b));
+      if (sort === "high-low") list.sort((a, b) => getCheapestPrice(b) - getCheapestPrice(a));
+
+      renderProducts(list);
+    }
+
+    function renderProducts(list) {
       const container = document.getElementById("productList");
+      if (list.length === 0) {
+        container.innerHTML = "<p style='text-align:center; grid-column:1/-1; color:#9a8974;'>No fragrances match these filters.</p>";
+        return;
+      }
       let html = "";
-      for (let i = 0; i < products.length; i++) {
-        const p = products[i];
+      for (const p of list) {
+        const realIndex = products.indexOf(p);
         let options = "";
         for (let s = 0; s < p.sizes.length; s++) {
           options += `<option value="${s}">${p.sizes[s][0]}ml - ${p.sizes[s][1]} Tk</option>`;
         }
-        const imgTag = p.image
-          ? `<img src="${p.image}" alt="${p.name}">`
-          : `&#127871;`;
+        const imgTag = p.image ? `<img src="${p.image}" alt="${p.name}">` : `&#127871;`;
+        const stockBadge = p.in_stock ? "" : `<p style="color:#d87f7f; font-size:0.75rem;">Out of Stock</p>`;
         html += `<div class="card">
           <div class="product-img">${imgTag}</div>
           <div class="card-body">
             <h3>${p.name}</h3>
-            <select id="size-${i}">${options}</select>
-            <button onclick="addToCart(${i})">Add to Cart</button>
+            <p style="font-size:0.75rem; color:#9a8974;">${p.gender} · ${p.season}</p>
+            ${stockBadge}
+            <select id="size-${realIndex}" ${!p.in_stock ? "disabled" : ""}>${options}</select>
+            <button onclick="addToCart(${realIndex})" ${!p.in_stock ? "disabled" : ""}>${p.in_stock ? "Add to Cart" : "Unavailable"}</button>
           </div>
         </div>`;
       }
@@ -73,11 +158,15 @@
       const sizeIndex = document.getElementById("size-" + index).value;
       const chosen = p.sizes[sizeIndex];
       cart.push({ name: p.name, ml: chosen[0], price: chosen[1] });
+      saveCartGlobal(cart);
+      updateNavCartCount();
       renderCart();
     }
 
     function removeFromCart(cartIndex) {
       cart.splice(cartIndex, 1);
+      saveCartGlobal(cart);
+      updateNavCartCount();
       renderCart();
     }
 
@@ -94,7 +183,7 @@
       document.getElementById("cartTotal").textContent = "Total: " + total + " Tk";
     }
 
-    async function checkout() {
+    async function placeOrder() {
       if (cart.length === 0) {
         document.getElementById("checkoutMsg").textContent = "Your cart is empty.";
         return;
@@ -103,15 +192,21 @@
       const custEmail = document.getElementById("custEmail").value;
       const custPhone = document.getElementById("custPhone").value;
       const custAddr = document.getElementById("custAddr").value;
+      const txnId = document.getElementById("txnId").value;
 
-      const res = await fetch("/api/initiate-payment", {
+      const res = await fetch("/api/place-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart, custName, custEmail, custPhone, custAddr })
+        body: JSON.stringify({ cart, custName, custEmail, custPhone, custAddr, txnId })
       });
       const data = await res.json();
       if (data.success) {
-        window.location.href = data.url;
+        document.getElementById("checkoutMsg").textContent =
+          `Order #${data.orderId} placed! Total: ${data.total} Tk. If you haven't paid yet, send it via bKash to ${data.bkashNumber}. Check your email for confirmation.`;
+        cart = [];
+        saveCartGlobal(cart);
+        updateNavCartCount();
+        renderCart();
       } else {
         document.getElementById("checkoutMsg").textContent = data.message;
       }
