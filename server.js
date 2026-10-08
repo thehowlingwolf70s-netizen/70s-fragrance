@@ -1,26 +1,26 @@
-const dns = require("dns");
-dns.setDefaultResultOrder("ipv4first");
 require("dotenv").config();
 const express = require("express");
 const session = require("express-session");
 const pgSession = require("connect-pg-simple")(session);
 const bcrypt = require("bcrypt");
-const nodemailer = require("nodemailer");
+const axios = require("axios");
 const pool = require("./db");
 const app = express();
 
 const BKASH_NUMBER = "01959350071";
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  family: 4,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+// Sends you a Telegram message. Not awaited by callers, so it can never slow down or break an order.
+async function notifyOwner(text) {
+  try {
+    await axios.post(
+      "https://api.telegram.org/bot" + process.env.TELEGRAM_BOT_TOKEN + "/sendMessage",
+      { chat_id: process.env.TELEGRAM_CHAT_ID, text: text },
+      { timeout: 10000 }
+    );
+  } catch (err) {
+    console.error("Telegram error:", err.response ? JSON.stringify(err.response.data) : err.message);
   }
-});
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -122,39 +122,19 @@ app.post("/api/place-order", async (req, res) => {
   }
 
   const itemLines = cart.map(i => `- ${i.name} (${i.ml}ml) — ${i.price} Tk`).join("\n");
-  const emailBody = `
-Order #${orderId} received!
+  const message = `NEW ORDER #${orderId}
 
 ${itemLines}
 
 Total: ${total} Tk
 
-Payment: Please send ${total} Tk via bKash to ${BKASH_NUMBER} (Send Money) if you haven't already.
-Transaction ID provided: ${txnId || "(not provided — message us on WhatsApp once sent)"}
+Name: ${custName}
+Phone: ${custPhone}
+Address: ${custAddr}
+Email: ${custEmail || "-"}
+bKash Txn ID: ${txnId || "not provided yet"}`;
 
-Delivery to: ${custName}, ${custPhone}, ${custAddr}
-
-We'll confirm your order shortly. Thank you for shopping with 70S Fragrance!
-`;
-
-  try {
-    if (custEmail) {
-      await transporter.sendMail({
-        from: `"70S Fragrance" <${process.env.EMAIL_USER}>`,
-        to: custEmail,
-        subject: `Order #${orderId} Confirmation — 70S Fragrance`,
-        text: emailBody
-      });
-    }
-    await transporter.sendMail({
-      from: `"70S Fragrance Orders" <${process.env.EMAIL_USER}>`,
-      to: process.env.ADMIN_EMAIL,
-      subject: `New Order #${orderId} — ${total} Tk`,
-      text: emailBody
-    });
-  } catch (err) {
-    console.error("Email send error:", err.message);
-  }
+  notifyOwner(message);
 
   res.json({ success: true, orderId, total, bkashNumber: BKASH_NUMBER });
 });
