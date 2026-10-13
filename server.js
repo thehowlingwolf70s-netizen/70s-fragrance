@@ -93,6 +93,29 @@ app.get("/api/orders", async (req, res) => {
   res.json(full);
 });
 
+// One order, for its owner (or an admin). Used by the receipt page.
+app.get("/api/orders/:id", async (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ success: false, message: "Please log in first." });
+  }
+  const id = parseInt(req.params.id);
+  if (!id) return res.status(400).json({ success: false, message: "Invalid order." });
+
+  const { rows } = await pool.query("SELECT * FROM orders WHERE id = $1", [id]);
+  const order = rows[0];
+  if (!order) return res.status(404).json({ success: false, message: "Order not found." });
+
+  let allowed = order.user_id === req.session.userId;
+  if (!allowed) {
+    const u = await pool.query("SELECT is_admin FROM users WHERE id = $1", [req.session.userId]);
+    allowed = !!(u.rows[0] && u.rows[0].is_admin);
+  }
+  if (!allowed) return res.status(403).json({ success: false, message: "This isn't your order." });
+
+  const { rows: items } = await pool.query("SELECT * FROM order_items WHERE order_id = $1", [id]);
+  res.json({ success: true, order: { ...order, items }, bkashNumber: BKASH_NUMBER });
+});
+
 app.post("/api/place-order", async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ success: false, message: "Please log in first." });

@@ -63,7 +63,7 @@
 
       <h3>Delivery Details</h3>
       <input id="custName" placeholder="Full Name"><br><br>
-      <input id="custEmail" placeholder="Email (for confirmation)"><br><br>
+      <input id="custEmail" placeholder="Email (optional)"><br><br>
       <input id="custPhone" placeholder="Phone"><br><br>
       <input id="custAddr" placeholder="Address"><br><br>
       <input id="txnId" placeholder="bKash Transaction ID (optional)"><br><br>
@@ -194,6 +194,8 @@
       const custAddr = document.getElementById("custAddr").value;
       const txnId = document.getElementById("txnId").value;
 
+      document.getElementById("checkoutMsg").textContent = "Placing your order...";
+
       const res = await fetch("/api/place-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -201,12 +203,9 @@
       });
       const data = await res.json();
       if (data.success) {
-        document.getElementById("checkoutMsg").textContent =
-          `Order #${data.orderId} placed! Total: ${data.total} Tk. If you haven't paid yet, send it via bKash to ${data.bkashNumber}. Check your email for confirmation.`;
         cart = [];
         saveCartGlobal(cart);
-        updateNavCartCount();
-        renderCart();
+        window.location.href = "receipt.html?id=" + data.orderId;
       } else {
         document.getElementById("checkoutMsg").textContent = data.message;
       }

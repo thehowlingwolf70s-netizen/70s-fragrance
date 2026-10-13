@@ -5,14 +5,20 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="announce-bar">Free delivery on orders over 2000 Tk</div>
   <header>
-    <img src="logo.png" alt="70S Fragrance">
-    <nav>
-      <a href="index.html">Home</a>
-      <a href="products.html">Shop</a>
-      <a href="login.html">Login</a>
-      <a href="orders.html">My Orders</a>
-    </nav>
+    <div class="nav-wrap">
+      <img class="logo" src="logo.png" alt="70S Fragrance">
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="products.html">Shop</a>
+        <a href="orders.html">My Orders</a>
+      </nav>
+      <div class="nav-icons">
+        <a href="login.html" title="Account">&#128100;</a>
+        <a href="products.html#cartBox" title="Cart">&#128717;<span class="cart-badge" id="navCartCount">0</span></a>
+      </div>
+    </div>
   </header>
 
   <div class="container">
@@ -26,11 +32,12 @@
     <p style="margin-top:10px;">&copy; 2026 70S Fragrance. All rights reserved.</p>
   </footer>
 
+  <script src="cart.js"></script>
   <script>
     async function loadOrders() {
       const res = await fetch("/api/orders");
       if (res.status === 401) {
-        document.getElementById("orderList").innerHTML = "<p style='text-align:center;'>Please log in to see your orders.</p>";
+        document.getElementById("orderList").innerHTML = "<p style='text-align:center;'>Please <a href='login.html'>log in</a> to see your orders.</p>";
         return;
       }
       const orders = await res.json();
@@ -46,7 +53,8 @@
         for (const item of o.items) {
           html += `<p>${item.product_name} (${item.ml}ml) - ${item.price} Tk</p>`;
         }
-        html += `</div>`;
+        html += `<p style="margin-top:12px;"><a href="receipt.html?id=${o.id}"><button>View receipt</button></a></p>
+        </div>`;
       }
       container.innerHTML = html;
     }
