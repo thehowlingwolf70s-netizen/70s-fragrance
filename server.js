@@ -22,6 +22,9 @@ async function notifyOwner(text) {
   }
 }
 
+// Trims a value and cuts it to a maximum length, so nobody can send huge or empty-looking text.
+const clean = (value, max) => String(value == null ? "" : value).trim().slice(0, max);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
@@ -120,42 +123,76 @@ app.post("/api/place-order", async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ success: false, message: "Please log in first." });
   }
+
   const { cart, custName, custEmail, custPhone, custAddr, txnId } = req.body;
-  if (!cart || cart.length === 0) {
+
+  if (!Array.isArray(cart) || cart.length === 0) {
     return res.status(400).json({ success: false, message: "Cart is empty." });
   }
-  if (!custName || !custPhone || !custAddr) {
+  if (cart.length > 40) {
+    return res.status(400).json({ success: false, message: "Too many items in one order. Please split it into two orders." });
+  }
+
+  const name = clean(custName, 100);
+  const phone = clean(custPhone, 30);
+  const addr = clean(custAddr, 300);
+  const mail = clean(custEmail, 100);
+  const txn = clean(txnId, 50);
+
+  if (!name || !phone || !addr) {
     return res.status(400).json({ success: false, message: "Please fill in your name, phone, and address." });
   }
 
-  const total = cart.reduce((sum, item) => sum + item.price, 0);
+  // Never trust prices sent by the browser: look up every price in the database.
+  const { rows: productRows } = await pool.query("SELECT name, sizes, in_stock FROM products");
+  const catalog = {};
+  for (const p of productRows) catalog[p.name] = p;
+
+  const items = [];
+  for (const entry of cart) {
+    const itemName = entry ? entry.name : "";
+    const p = catalog[itemName];
+    if (!p) {
+      return res.status(400).json({ success: false, message: "Sorry, \"" + itemName + "\" is no longer available. Please remove it from your cart." });
+    }
+    if (!p.in_stock) {
+      return res.status(400).json({ success: false, message: p.name + " is out of stock. Please remove it from your cart." });
+    }
+    const size = JSON.parse(p.sizes).find(s => Number(s[0]) === Number(entry.ml));
+    if (!size) {
+      return res.status(400).json({ success: false, message: p.name + " is no longer sold in " + entry.ml + "ml. Please remove it from your cart." });
+    }
+    items.push({ name: p.name, ml: size[0], price: size[1] });
+  }
+
+  const total = items.reduce((sum, item) => sum + item.price, 0);
 
   const orderResult = await pool.query(
     `INSERT INTO orders (user_id, total, status, tran_id, cust_name, cust_email, cust_phone, cust_addr)
      VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7) RETURNING id`,
-    [req.session.userId, total, txnId || null, custName, custEmail || null, custPhone, custAddr]
+    [req.session.userId, total, txn || null, name, mail || null, phone, addr]
   );
   const orderId = orderResult.rows[0].id;
 
-  for (const item of cart) {
+  for (const item of items) {
     await pool.query(
       "INSERT INTO order_items (order_id, product_name, ml, price) VALUES ($1, $2, $3, $4)",
       [orderId, item.name, item.ml, item.price]
     );
   }
 
-  const itemLines = cart.map(i => `- ${i.name} (${i.ml}ml) — ${i.price} Tk`).join("\n");
+  const itemLines = items.map(i => `- ${i.name} (${i.ml}ml) — ${i.price} Tk`).join("\n");
   const message = `NEW ORDER #${orderId}
 
 ${itemLines}
 
 Total: ${total} Tk
 
-Name: ${custName}
-Phone: ${custPhone}
-Address: ${custAddr}
-Email: ${custEmail || "-"}
-bKash Txn ID: ${txnId || "not provided yet"}`;
+Name: ${name}
+Phone: ${phone}
+Address: ${addr}
+Email: ${mail || "-"}
+bKash Txn ID: ${txn || "not provided yet"}`;
 
   notifyOwner(message);
 
@@ -183,7 +220,11 @@ app.get("/api/admin/orders", requireAdmin, async (req, res) => {
 });
 
 app.put("/api/admin/orders/:id/status", requireAdmin, async (req, res) => {
+  const allowed = ["pending", "paid", "shipped", "delivered", "cancelled"];
   const { status } = req.body;
+  if (!allowed.includes(status)) {
+    return res.status(400).json({ success: false, message: "Unknown status." });
+  }
   await pool.query("UPDATE orders SET status = $1 WHERE id = $2", [status, req.params.id]);
   res.json({ success: true });
 });

@@ -3,27 +3,61 @@
 <head>
   <title>Admin Panel — 70S Fragrance</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .status-shipped { color: #7fb8d8; font-weight: 600; }
+    .status-delivered { color: #7fd88f; font-weight: 600; }
+    .small { font-size: 0.82rem; color: #9a8974; line-height: 1.7; }
+    .order-info { font-size: 0.88rem; line-height: 1.7; color: #c9b8a5; margin: 8px 0 12px; }
+    .status-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+    .status-row select { width: auto; min-width: 150px; }
+    .toolbar { max-width: 900px; margin: 0 auto 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+    .toolbar select { width: auto; min-width: 170px; }
+  </style>
 </head>
 <body>
+  <div class="announce-bar">Free delivery on orders over 2000 Tk</div>
   <header>
-    <img src="logo.png" alt="70S Fragrance">
-    <nav>
-      <a href="index.html">Home</a>
-      <a href="products.html">Shop</a>
-      <a href="login.html">Login</a>
-      <a href="orders.html">My Orders</a>
-    </nav>
+    <div class="nav-wrap">
+      <img class="logo" src="logo.png" alt="70S Fragrance">
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="products.html">Shop</a>
+        <a href="orders.html">My Orders</a>
+      </nav>
+      <div class="nav-icons">
+        <a href="login.html" title="Account">&#128100;</a>
+        <a href="products.html#cartBox" title="Cart">&#128717;<span class="cart-badge" id="navCartCount">0</span></a>
+      </div>
+    </div>
   </header>
 
   <div class="container">
     <h1 style="text-align:center;">Admin Panel</h1>
-    <div id="deniedMsg" style="display:none; text-align:center;"><p>Access denied — admin only.</p></div>
+
+    <div id="deniedMsg" style="display:none; text-align:center;">
+      <p>Access denied — admin only. <a href="login.html">Log in</a> with your admin account, then open this page again.</p>
+    </div>
 
     <div id="adminArea" style="display:none;">
-      <div class="form-box">
+
+      <h2 style="text-align:center;">Orders</h2>
+      <div class="toolbar">
+        <span class="small" id="orderCount"></span>
+        <select id="orderFilter" onchange="renderOrders()">
+          <option value="">All orders</option>
+          <option value="pending">Pending</option>
+          <option value="paid">Paid</option>
+          <option value="shipped">Shipped</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div id="orderList"></div>
+
+      <div class="form-box" id="productForm" style="margin-top:40px;">
         <h2 id="formTitle">Add Product</h2>
         <input id="prodName" placeholder="Product name"><br><br>
-        <input id="prodSizes" placeholder="1.5:320,3:380,5:620,10:1130,15:1700,30:3270"><br><br>
+        <input id="prodSizes" placeholder="1.5:230,3:420,5:660,10:1180,15:1690,30:3100"><br><br>
         <input id="prodImage" placeholder="images/versace-eros.jpeg (optional)"><br><br>
         <select id="prodSeason">
           <option value="All Season">All Season</option>
@@ -44,11 +78,8 @@
         <p class="msg" id="prodMsg"></p>
       </div>
 
-      <h2>All Products</h2>
+      <h2 style="text-align:center;">All Products</h2>
       <div id="productList"></div>
-
-      <h2>All Orders</h2>
-      <div id="orderList"></div>
     </div>
   </div>
 
@@ -58,8 +89,19 @@
     <p style="margin-top:10px;">&copy; 2026 70S Fragrance. All rights reserved.</p>
   </footer>
 
+  <script src="cart.js"></script>
   <script>
+    const STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"];
     let editingId = null;
+    let allOrders = [];
+    let adminProducts = [];
+
+    // Makes customer-typed text safe to show on the page.
+    function esc(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
 
     async function checkAdmin() {
       const res = await fetch("/api/admin/check");
@@ -69,15 +111,93 @@
         return;
       }
       document.getElementById("adminArea").style.display = "block";
-      loadProducts();
       loadOrders();
+      loadProducts();
     }
 
-    function parseSizes(text) {
-      return text.split(",").map(pair => {
-        const [ml, price] = pair.split(":");
-        return [parseFloat(ml), parseInt(price)];
+    // ---------- ORDERS ----------
+
+    async function loadOrders() {
+      const res = await fetch("/api/admin/orders");
+      allOrders = await res.json();
+      renderOrders();
+    }
+
+    function renderOrders() {
+      const filter = document.getElementById("orderFilter").value;
+      const list = filter ? allOrders.filter(o => o.status === filter) : allOrders;
+      const pending = allOrders.filter(o => o.status === "pending").length;
+      document.getElementById("orderCount").textContent =
+        allOrders.length + " orders in total, " + pending + " waiting for payment check";
+
+      const container = document.getElementById("orderList");
+      if (list.length === 0) {
+        container.innerHTML = "<p style='text-align:center; color:#9a8974;'>No orders here.</p>";
+        return;
+      }
+
+      let html = "";
+      for (const o of list) {
+        let items = "";
+        for (const it of o.items) {
+          items += `<p class="small">${esc(it.product_name)} (${esc(it.ml)}ml) - ${esc(it.price)} Tk</p>`;
+        }
+        let options = "";
+        for (const s of STATUSES) {
+          options += `<option value="${s}" ${o.status === s ? "selected" : ""}>${s}</option>`;
+        }
+        html += `<div class="order-card">
+          <h3>Order #${esc(o.id)} — ${esc(o.total)} Tk — <span class="status-${esc(o.status)}">${esc(String(o.status).toUpperCase())}</span></h3>
+          <p class="small">${esc(new Date(o.created_at).toLocaleString())}</p>
+          <div class="order-info">
+            <b>Customer:</b> ${esc(o.cust_name)} · ${esc(o.cust_phone)}<br>
+            <b>Address:</b> ${esc(o.cust_addr)}<br>
+            <b>Email:</b> ${esc(o.cust_email || "-")}<br>
+            <b>bKash Transaction ID:</b> ${esc(o.tran_id || "not given yet")}<br>
+            <b>Account:</b> ${esc(o.accountName)} (${esc(o.accountEmail)})
+          </div>
+          ${items}
+          <div class="status-row">
+            <select id="status-${esc(o.id)}">${options}</select>
+            <button onclick="updateStatus(${Number(o.id)})">Update status</button>
+            <span class="small" id="statusMsg-${esc(o.id)}"></span>
+          </div>
+        </div>`;
+      }
+      container.innerHTML = html;
+    }
+
+    async function updateStatus(id) {
+      const status = document.getElementById("status-" + id).value;
+      const msg = document.getElementById("statusMsg-" + id);
+      msg.textContent = "Saving...";
+      const res = await fetch("/api/admin/orders/" + id + "/status", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
       });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const order = allOrders.find(o => Number(o.id) === id);
+        if (order) order.status = status;
+        renderOrders();
+      } else {
+        msg.textContent = data.message || "Could not save. Please try again.";
+      }
+    }
+
+    // ---------- PRODUCTS ----------
+
+    function parseSizes(text) {
+      const out = [];
+      for (const pair of text.split(",")) {
+        const parts = pair.trim().split(":");
+        const ml = parseFloat(parts[0]);
+        const price = parseInt(parts[1]);
+        if (parts.length !== 2 || isNaN(ml) || isNaN(price)) return null;
+        out.push([ml, price]);
+      }
+      return out;
     }
 
     function sizesToText(sizes) {
@@ -85,45 +205,49 @@
     }
 
     async function saveProduct() {
-      const name = document.getElementById("prodName").value;
+      const msg = document.getElementById("prodMsg");
+      const name = document.getElementById("prodName").value.trim();
       const sizes = parseSizes(document.getElementById("prodSizes").value);
-      const image = document.getElementById("prodImage").value;
+      const image = document.getElementById("prodImage").value.trim();
       const season = document.getElementById("prodSeason").value;
       const gender = document.getElementById("prodGender").value;
       const in_stock = document.getElementById("prodInStock").checked;
 
-      if (editingId) {
-        await fetch("/api/admin/products/" + editingId, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, sizes, image, season, gender, in_stock })
-        });
-        document.getElementById("prodMsg").textContent = "Product updated.";
+      if (!name) { msg.textContent = "Please type the product name."; return; }
+      if (!sizes) { msg.textContent = "Sizes must look like 3:420,5:660 (ml, then a colon, then the price)."; return; }
+
+      const url = editingId ? "/api/admin/products/" + editingId : "/api/admin/products";
+      const res = await fetch(url, {
+        method: editingId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, sizes, image, season, gender, in_stock })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        msg.textContent = editingId ? "Product updated." : "Product added.";
+        cancelEdit(false);
+        loadProducts();
       } else {
-        await fetch("/api/admin/products", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, sizes, image, season, gender, in_stock })
-        });
-        document.getElementById("prodMsg").textContent = "Product added.";
+        msg.textContent = data.message || "Could not save the product.";
       }
-      cancelEdit();
-      loadProducts();
     }
 
-    function editProduct(id, name, sizes, image, season, gender, in_stock) {
-      editingId = id;
+    function editProductAt(i) {
+      const p = adminProducts[i];
+      editingId = p.id;
       document.getElementById("formTitle").textContent = "Edit Product";
-      document.getElementById("prodName").value = name;
-      document.getElementById("prodSizes").value = sizesToText(sizes);
-      document.getElementById("prodImage").value = image || "";
-      document.getElementById("prodSeason").value = season || "All Season";
-      document.getElementById("prodGender").value = gender || "Unisex";
-      document.getElementById("prodInStock").checked = !!in_stock;
+      document.getElementById("prodName").value = p.name;
+      document.getElementById("prodSizes").value = sizesToText(p.sizes);
+      document.getElementById("prodImage").value = p.image || "";
+      document.getElementById("prodSeason").value = p.season || "All Season";
+      document.getElementById("prodGender").value = p.gender || "Unisex";
+      document.getElementById("prodInStock").checked = !!p.in_stock;
       document.getElementById("cancelEditBtn").style.display = "inline";
+      document.getElementById("prodMsg").textContent = "";
+      document.getElementById("productForm").scrollIntoView({ behavior: "smooth" });
     }
 
-    function cancelEdit() {
+    function cancelEdit(clearMessage = true) {
       editingId = null;
       document.getElementById("formTitle").textContent = "Add Product";
       document.getElementById("prodName").value = "";
@@ -133,44 +257,31 @@
       document.getElementById("prodGender").value = "Unisex";
       document.getElementById("prodInStock").checked = true;
       document.getElementById("cancelEditBtn").style.display = "none";
+      if (clearMessage) document.getElementById("prodMsg").textContent = "";
     }
 
-    async function deleteProduct(id) {
-      await fetch("/api/admin/products/" + id, { method: "DELETE" });
+    async function deleteProductAt(i) {
+      const p = adminProducts[i];
+      if (!confirm("Delete " + p.name + "? This cannot be undone.")) return;
+      await fetch("/api/admin/products/" + p.id, { method: "DELETE" });
       loadProducts();
     }
 
     async function loadProducts() {
       const res = await fetch("/api/products");
-      const products = await res.json();
-      const container = document.getElementById("productList");
+      adminProducts = await res.json();
       let html = "";
-      for (const p of products) {
+      for (let i = 0; i < adminProducts.length; i++) {
+        const p = adminProducts[i];
         html += `<div class="card">
-          <h3>${p.name}</h3>
-          <p style="font-size:0.8rem;color:#b9a793;">${sizesToText(p.sizes)}</p>
-          <p style="font-size:0.75rem;color:#7a6a5a;">${p.image || "no image"} | ${p.season} | ${p.gender} | ${p.in_stock ? "In Stock" : "Out of Stock"}</p>
-          <button onclick='editProduct(${p.id}, ${JSON.stringify(p.name)}, ${JSON.stringify(p.sizes)}, ${JSON.stringify(p.image)}, ${JSON.stringify(p.season)}, ${JSON.stringify(p.gender)}, ${p.in_stock})'>Edit</button>
-          <button onclick="deleteProduct(${p.id})">Delete</button>
+          <h3>${esc(p.name)}</h3>
+          <p style="font-size:0.8rem; color:#b9a793;">${esc(sizesToText(p.sizes))}</p>
+          <p style="font-size:0.75rem; color:#7a6a5a;">${esc(p.image || "no image")} | ${esc(p.season)} | ${esc(p.gender)} | ${p.in_stock ? "In Stock" : "Out of Stock"}</p>
+          <button onclick="editProductAt(${i})">Edit</button>
+          <button onclick="deleteProductAt(${i})">Delete</button>
         </div>`;
       }
-      container.innerHTML = `<div class="grid">${html}</div>`;
-    }
-
-    async function loadOrders() {
-      const res = await fetch("/api/admin/orders");
-      const orders = await res.json();
-      const container = document.getElementById("orderList");
-      let html = "";
-      for (const o of orders) {
-        html += `<div class="order-card">
-          <h3>Order #${o.id} — ${o.customerName} — ${o.total} Tk — <span class="status-${o.status}">${o.status.toUpperCase()}</span></h3>`;
-        for (const item of o.items) {
-          html += `<p>${item.product_name} (${item.ml}ml) - ${item.price} Tk</p>`;
-        }
-        html += `</div>`;
-      }
-      container.innerHTML = html;
+      document.getElementById("productList").innerHTML = `<div class="grid">${html}</div>`;
     }
 
     checkAdmin();
