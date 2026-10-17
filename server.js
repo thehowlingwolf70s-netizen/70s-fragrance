@@ -1,4 +1,5 @@
 require("dotenv").config();
+const path = require("path");
 const express = require("express");
 const session = require("express-session");
 const pgSession = require("connect-pg-simple")(session);
@@ -25,15 +26,43 @@ async function notifyOwner(text) {
 // Trims a value and cuts it to a maximum length, so nobody can send huge or empty-looking text.
 const clean = (value, max) => String(value == null ? "" : value).trim().slice(0, max);
 
+// Render sits behind a proxy, so this lets the secure cookie setting work on the live site.
+app.set("trust proxy", 1);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Keep the server's own code and config files private.
+// (express.static below would otherwise hand them to anyone who asks for them.)
+const PRIVATE_FILES = [
+  "/server.js", "/db.js", "/make-admin.js", "/fix-prices.js", "/link-images.js",
+  "/package.json", "/package-lock.json", "/store.db"
+];
+app.use((req, res, next) => {
+  let p;
+  try {
+    p = path.posix.normalize(decodeURIComponent(req.path).replace(/\\/g, "/")).toLowerCase();
+  } catch (e) {
+    return res.status(400).send("Bad request");
+  }
+  if (PRIVATE_FILES.includes(p) || p.startsWith("/node_modules")) {
+    return res.status(404).send("Not found");
+  }
+  next();
+});
+
 app.use(express.static(__dirname));
 app.use(session({
   store: new pgSession({ pool: pool, createTableIfMissing: true }),
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
+  cookie: {
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: "auto"
+  }
 }));
 
 async function requireAdmin(req, res, next) {
@@ -53,26 +82,58 @@ app.get("/api/products", async (req, res) => {
 });
 
 app.post("/api/signup", async (req, res) => {
-  const { name, email, password } = req.body;
+  const name = clean(req.body.name, 100);
+  const email = clean(req.body.email, 100).toLowerCase();
+  const password = String(req.body.password == null ? "" : req.body.password);
+
+  if (!name) {
+    return res.status(400).json({ success: false, message: "Please type your name." });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ success: false, message: "Please type a valid email address." });
+  }
+  if (password.length < 6 || password.length > 100) {
+    return res.status(400).json({ success: false, message: "Your password must be at least 6 characters." });
+  }
+
   const hashed = await bcrypt.hash(password, 10);
   try {
-    await pool.query("INSERT INTO users (name, email, password) VALUES ($1, $2, $3)", [name, email, hashed]);
-    res.json({ success: true });
+    const result = await pool.query(
+      "INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id",
+      [name, email, hashed]
+    );
+    // Log the new customer straight in, so they can go on shopping.
+    req.session.userId = result.rows[0].id;
+    req.session.userName = name;
+    res.json({ success: true, name: name });
   } catch (err) {
-    res.status(400).json({ success: false, message: "Email already registered." });
+    if (err.code === "23505") {
+      return res.status(400).json({ success: false, message: "That email is already registered. Please log in instead." });
+    }
+    throw err;
   }
 });
 
 app.post("/api/login", async (req, res) => {
-  const { email, password } = req.body;
-  const { rows } = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+  const email = clean(req.body.email, 100);
+  const password = String(req.body.password == null ? "" : req.body.password);
+
+  const { rows } = await pool.query("SELECT * FROM users WHERE LOWER(email) = LOWER($1)", [email]);
   const user = rows[0];
-  if (!user) return res.status(400).json({ success: false, message: "No account found." });
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) return res.status(400).json({ success: false, message: "Wrong password." });
+  const match = user ? await bcrypt.compare(password, user.password) : false;
+  if (!match) {
+    return res.status(400).json({ success: false, message: "Wrong email or password." });
+  }
   req.session.userId = user.id;
   req.session.userName = user.name;
   res.json({ success: true, name: user.name });
+});
+
+app.post("/api/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie("connect.sid");
+    res.json({ success: true });
+  });
 });
 
 app.get("/api/me", (req, res) => {
@@ -121,7 +182,7 @@ app.get("/api/orders/:id", async (req, res) => {
 
 app.post("/api/place-order", async (req, res) => {
   if (!req.session.userId) {
-    return res.status(401).json({ success: false, message: "Please log in first." });
+    return res.status(401).json({ success: false, message: "Please log in or create an account first. Your cart is saved." });
   }
 
   const { cart, custName, custEmail, custPhone, custAddr, txnId } = req.body;
@@ -250,6 +311,13 @@ app.put("/api/admin/products/:id", requireAdmin, async (req, res) => {
 app.delete("/api/admin/products/:id", requireAdmin, async (req, res) => {
   await pool.query("DELETE FROM products WHERE id = $1", [req.params.id]);
   res.json({ success: true });
+});
+
+// If anything unexpected goes wrong, answer politely instead of hanging.
+app.use((err, req, res, next) => {
+  console.error("Server error:", err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ success: false, message: "Something went wrong. Please try again." });
 });
 
 const PORT = process.env.PORT || 3000;

@@ -5,24 +5,33 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="announce-bar">Free delivery on orders over 2000 Tk</div>
   <header>
-    <img src="logo.png" alt="70S Fragrance">
-    <nav>
-      <a href="index.html">Home</a>
-      <a href="products.html">Shop</a>
-      <a href="login.html">Login</a>
-      <a href="orders.html">My Orders</a>
-    </nav>
+    <div class="nav-wrap">
+      <img class="logo" src="logo.png" alt="70S Fragrance">
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="products.html">Shop</a>
+        <a href="orders.html">My Orders</a>
+      </nav>
+      <div class="nav-icons">
+        <a href="login.html" title="Account">&#128100;</a>
+        <a href="products.html#cartBox" title="Cart">&#128717;<span class="cart-badge" id="navCartCount">0</span></a>
+      </div>
+    </div>
   </header>
 
   <div class="container">
     <h1 style="text-align:center;">Create Account</h1>
     <div class="form-box">
-      <input id="name" placeholder="Name"><br><br>
-      <input id="email" placeholder="Email"><br><br>
-      <input id="password" type="password" placeholder="Password"><br><br>
+      <input id="name" placeholder="Your name" autocomplete="name"><br><br>
+      <input id="email" type="email" placeholder="Email" autocomplete="email"><br><br>
+      <input id="password" type="password" placeholder="Password (at least 6 characters)" autocomplete="new-password"><br><br>
       <button onclick="signup()" style="width:100%;">Sign Up</button>
       <p class="msg" id="msg"></p>
+      <p style="text-align:center; font-size:0.85rem; color:#9a8974; margin-top:14px;">
+        Already have an account? <a href="login.html">Log in</a>
+      </p>
     </div>
   </div>
 
@@ -32,19 +41,36 @@
     <p style="margin-top:10px;">&copy; 2026 70S Fragrance. All rights reserved.</p>
   </footer>
 
+  <script src="cart.js"></script>
   <script>
     async function signup() {
-      const name = document.getElementById("name").value;
-      const email = document.getElementById("email").value;
+      const msg = document.getElementById("msg");
+      const name = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
+
+      if (!name || !email || !password) {
+        msg.textContent = "Please fill in your name, email and password.";
+        return;
+      }
+      msg.textContent = "Creating your account...";
       const res = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password })
       });
       const data = await res.json();
-      document.getElementById("msg").textContent = data.success ? "Account created! Go log in." : data.message;
+      if (data.success) {
+        msg.textContent = "Account created! Taking you to the shop...";
+        window.location.href = "products.html";
+      } else {
+        msg.textContent = data.message;
+      }
     }
+
+    document.getElementById("password").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") signup();
+    });
   </script>
 </body>
 </html>
