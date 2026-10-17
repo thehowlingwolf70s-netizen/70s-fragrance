@@ -5,7 +5,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="announce-bar">Free delivery on orders over 2000 Tk</div>
+  <div class="announce-bar">Try any fragrance from 1.5ml · Pay by bKash</div>
   <header>
     <div class="nav-wrap">
       <img class="logo" src="logo.png" alt="70S Fragrance">
@@ -49,6 +49,8 @@
         In Stock Only
       </label>
     </div>
+
+    <p id="resultCount" style="text-align:center; color:#9a8974; font-size:0.85rem; margin-bottom:16px;"></p>
 
     <div class="grid" id="productList"></div>
 
@@ -114,7 +116,8 @@
       const searchEl = document.getElementById("searchInput");
       const search = searchEl ? searchEl.value.trim().toLowerCase() : "";
 
-      if (gender) list = list.filter(p => p.gender === gender);
+      // "For Him" and "For Her" also show the Unisex perfumes, because anyone can wear those.
+      if (gender) list = list.filter(p => p.gender === gender || p.gender === "Unisex");
       if (season) list = list.filter(p => p.season === season);
       if (inStockOnly) list = list.filter(p => p.in_stock);
       if (search) list = list.filter(p => p.name.toLowerCase().includes(search));
@@ -125,6 +128,9 @@
     }
 
     function renderProducts(list) {
+      document.getElementById("resultCount").textContent =
+        "Showing " + list.length + " fragrance" + (list.length === 1 ? "" : "s");
+
       const container = document.getElementById("productList");
       if (list.length === 0) {
         container.innerHTML = "<p style='text-align:center; grid-column:1/-1; color:#9a8974;'>No fragrances match these filters.</p>";
@@ -184,8 +190,9 @@
     }
 
     async function placeOrder() {
+      const msg = document.getElementById("checkoutMsg");
       if (cart.length === 0) {
-        document.getElementById("checkoutMsg").textContent = "Your cart is empty.";
+        msg.textContent = "Your cart is empty.";
         return;
       }
       const custName = document.getElementById("custName").value;
@@ -194,20 +201,28 @@
       const custAddr = document.getElementById("custAddr").value;
       const txnId = document.getElementById("txnId").value;
 
-      document.getElementById("checkoutMsg").textContent = "Placing your order...";
+      msg.textContent = "Placing your order...";
 
       const res = await fetch("/api/place-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cart, custName, custEmail, custPhone, custAddr, txnId })
       });
+
+      // Not logged in: send them to log in, then straight back here. Their cart is saved.
+      if (res.status === 401) {
+        msg.textContent = "Please log in or create an account first. Your cart is saved. Taking you to the login page...";
+        setTimeout(() => { window.location.href = "login.html?next=products.html"; }, 1500);
+        return;
+      }
+
       const data = await res.json();
       if (data.success) {
         cart = [];
         saveCartGlobal(cart);
         window.location.href = "receipt.html?id=" + data.orderId;
       } else {
-        document.getElementById("checkoutMsg").textContent = data.message;
+        msg.textContent = data.message;
       }
     }
 
