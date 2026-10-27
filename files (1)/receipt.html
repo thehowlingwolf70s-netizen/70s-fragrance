@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Order Receipt — 70S Fragrance</title>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex"><link rel="icon" href="/logo.png">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .receipt{max-width:560px;margin:0 auto 30px;background:linear-gradient(180deg,#170d0f,#120a0b);border:1px solid #2e2019;border-radius:12px;padding:30px}
+    .receipt .brand{text-align:center;font-family:'Cormorant Garamond',serif;font-size:1.8rem;color:#e8c968}
+    .receipt .thanks{text-align:center;color:#9a8974;margin:6px 0 22px;font-size:.9rem}
+    .receipt .meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:.85rem;color:#c9b8a5;border-top:1px solid #2e2019;border-bottom:1px solid #2e2019;padding:12px 0;margin-bottom:18px}
+    .receipt .row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #2e2019;font-size:.9rem}
+    .receipt .discountrow{display:flex;justify-content:space-between;padding:8px 0;font-size:.9rem;color:#7fd88f}
+    .receipt .totalrow{display:flex;justify-content:space-between;padding:14px 0;font-size:1.15rem;color:#e8c968;font-family:'Cormorant Garamond',serif}
+    .receipt h3{font-size:1rem;margin:18px 0 8px}
+    .receipt p{font-size:.88rem;line-height:1.6;color:#c9b8a5}
+    .paybox{background:#100608;border:1px solid #3a2a20;border-radius:8px;padding:14px;margin-top:16px}
+    .actions{max-width:560px;margin:0 auto 30px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+    .actions a{text-decoration:none}
+    .status-pill{padding:2px 10px;border-radius:20px;border:1px solid currentColor;font-size:.78rem}
+    @media print{body{background:#fff!important;color:#000!important}header,footer,.announce-bar,.actions{display:none!important}.receipt{background:#fff!important;border:1px solid #000!important}.receipt,.receipt *{color:#000!important;border-color:#999!important}.paybox{background:#fff!important}}
+  </style>
+</head>
+<body>
+  <div class="announce-bar">5% off if you pay now · 5% off on orders over 2000 Tk</div>
+  <header>
+    <div class="nav-wrap">
+      <img class="logo" src="logo.png" alt="70S Fragrance">
+      <nav><a href="index.html">Home</a><a href="products.html">Shop</a><a href="orders.html">My Orders</a></nav>
+      <div class="nav-icons">
+        <a href="login.html" title="Account">&#128100;</a>
+        <a href="products.html#cartBox" title="Cart">&#128717;<span class="cart-badge" id="navCartCount">0</span></a>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="receiptArea"><p style="text-align:center;color:#9a8974;">Loading your receipt...</p></div>
+  </div>
+
+  <footer>
+    <div class="footer-brand">70S Fragrance</div>
+    <p>Signature scents, decanted with care.</p>
+    <p style="margin-top:10px;">&copy; 2026 70S Fragrance. All rights reserved.</p>
+  </footer>
+
+  <script src="cart.js"></script>
+  <script>
+    const WHATSAPP_NUMBER = "8801959350071";
+    function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+    async function loadReceipt() {
+      const area = document.getElementById("receiptArea");
+      const id = new URLSearchParams(window.location.search).get("id");
+      if (!id) { area.innerHTML = "<p style='text-align:center;'>No order. <a href='orders.html'>My Orders</a></p>"; return; }
+      const res = await fetch("/api/orders/" + encodeURIComponent(id));
+      if (res.status === 401) { area.innerHTML = "<p style='text-align:center;'>Please <a href='login.html'>log in</a> to view this receipt.</p>"; return; }
+      const data = await res.json();
+      if (!data.success) { area.innerHTML = "<p style='text-align:center;'>" + esc(data.message) + " <a href='orders.html'>My Orders</a></p>"; return; }
+      const o = data.order;
+      const when = new Date(o.created_at).toLocaleString();
+      const waText = "Hi 70S Fragrance, I placed order #" + o.id + " (" + o.total + " Tk). My bKash transaction ID is: ";
+      const waLink = "https://wa.me/" + WHATSAPP_NUMBER + "?text=" + encodeURIComponent(waText);
+
+      // reconstruct discount info from tran_id and items
+      const subtotal = o.items.reduce((s, i) => s + Number(i.price), 0);
+      const hasTxn = !!(o.tran_id && o.tran_id.trim());
+      let discountPct = 0;
+      if (hasTxn) discountPct += 5;
+      if (subtotal >= 2000) discountPct += 5;
+      const discountAmt = Math.round(subtotal * discountPct / 100);
+      const discountRow = discountPct > 0
+        ? `<div class="discountrow"><span>Discount (${discountPct}% off)</span><span>−${discountAmt} Tk</span></div>`
+        : "";
+
+      let items = "";
+      for (const it of o.items) items += `<div class="row"><span>${esc(it.product_name)} (${esc(it.ml)}ml)</span><span>${esc(it.price)} Tk</span></div>`;
+
+      area.innerHTML = `
+        <div class="receipt">
+          <div class="brand">70S Fragrance</div>
+          <div class="thanks">Thank you! Your order has been placed.</div>
+          <div class="meta">
+            <span><b>Order #${esc(o.id)}</b></span>
+            <span>${esc(when)}</span>
+            <span class="status-${esc(o.status)}"><span class="status-pill">${esc(String(o.status).toUpperCase())}</span></span>
+          </div>
+          ${items}
+          ${discountRow}
+          <div class="totalrow"><span>Total</span><span>${esc(o.total)} Tk</span></div>
+          <h3>Delivery details</h3>
+          <p>${esc(o.cust_name)}<br>${esc(o.cust_phone)}<br>${esc(o.cust_addr)}</p>
+          <div class="paybox">
+            <p><b>Payment:</b> please send <b>${esc(o.total)} Tk</b> via bKash (Send Money) to <b>${esc(data.bkashNumber)}</b>.</p>
+            <p><b>Transaction ID:</b> ${o.tran_id ? esc(o.tran_id) : "not provided yet — send it to us on WhatsApp"}</p>
+            <p style="margin-top:8px;">We will confirm your order as soon as we verify your payment.</p>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn-primary" onclick="window.print()">Print / Save as PDF</button>
+          <a href="${waLink}" target="_blank"><button>Send payment details on WhatsApp</button></a>
+          <a href="orders.html"><button>My Orders</button></a>
+        </div>`;
+    }
+    loadReceipt();
+  </script>
+</body>
+</html>

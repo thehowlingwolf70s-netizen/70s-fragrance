@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Shop — 70S Fragrance</title>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0507">
+  <meta name="description" content="Designer, Arabian and niche fragrances sold by the ml. Pay by bKash.">
+  <meta property="og:title" content="70S Fragrance">
+  <meta property="og:description" content="Try designer fragrances by the ml, from 1.5ml samples to 30ml.">
+  <meta property="og:image" content="https://seven0s-fragrance.onrender.com/logo.png">
+  <link rel="icon" href="/logo.png">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .discount-box{background:#1a0f12;border:1px solid #d4af37;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:0.88rem;line-height:1.7;color:#c9b8a5}
+    .discount-box b{color:#e8c968}
+    .discount-box .active{color:#7fd88f;font-weight:600}
+  </style>
+</head>
+<body>
+  <div class="announce-bar">5% off if you pay now · 5% off on orders over 2000 Tk · Stack both for 10% off</div>
+  <header>
+    <div class="nav-wrap">
+      <img class="logo" src="logo.png" alt="70S Fragrance">
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="products.html">Shop</a>
+        <a href="orders.html">My Orders</a>
+      </nav>
+      <div class="nav-icons">
+        <button onclick="toggleSearch()" title="Search">&#128269;</button>
+        <a href="login.html" title="Account">&#128100;</a>
+        <a href="#cartBox" title="Cart">&#128717;<span class="cart-badge" id="navCartCount">0</span></a>
+      </div>
+    </div>
+    <div id="searchBar"><input id="searchInput" placeholder="Search fragrances..." oninput="applyFilters()"></div>
+  </header>
+
+  <div class="container">
+    <h1 style="text-align:center;">Our Fragrances</h1>
+
+    <div class="form-box" style="max-width:900px; display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+      <select id="filterGender" onchange="applyFilters()" style="flex:1; min-width:140px;">
+        <option value="">All</option>
+        <option value="For Him">For Him</option>
+        <option value="For Her">For Her</option>
+        <option value="Unisex">Unisex</option>
+      </select>
+      <select id="filterSeason" onchange="applyFilters()" style="flex:1; min-width:140px;">
+        <option value="">Any Season</option>
+        <option value="Summer">Summer</option>
+        <option value="Winter">Winter</option>
+        <option value="All Season">All Season</option>
+      </select>
+      <select id="filterSort" onchange="applyFilters()" style="flex:1; min-width:160px;">
+        <option value="">Sort by Price</option>
+        <option value="low-high">Price: Low to High</option>
+        <option value="high-low">Price: High to Low</option>
+      </select>
+      <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:#b9a793;">
+        <input type="checkbox" id="filterInStock" onchange="applyFilters()" style="width:auto;">
+        In Stock Only
+      </label>
+    </div>
+
+    <p id="resultCount" style="text-align:center; color:#9a8974; font-size:0.85rem; margin-bottom:16px;"></p>
+    <div class="grid" id="productList">
+      <p style="text-align:center; grid-column:1/-1; color:#9a8974;">Loading fragrances...</p>
+    </div>
+
+    <div class="cart-box" id="cartBox">
+      <h2>Your Cart</h2>
+      <div id="cartList"></div>
+      <div class="total" id="cartTotal">Total: 0 Tk</div>
+
+      <div id="discountBox" class="discount-box" style="display:none;"></div>
+
+      <div class="msg" style="background:#100608; border:1px solid #3a2a20; border-radius:6px; padding:12px; text-align:left; margin-bottom:16px;">
+        Send your total via bKash (Send Money) to <b style="color:#e8c968;">01959350071</b>, then enter the Transaction ID below to get <b style="color:#e8c968;">5% off</b>.
+      </div>
+
+      <h3>Delivery Details</h3>
+      <input id="custName" placeholder="Full Name" autocomplete="name"><br><br>
+      <input id="custEmail" type="email" placeholder="Email (optional)" autocomplete="email"><br><br>
+      <input id="custPhone" type="tel" placeholder="Mobile number (e.g. 01712345678)" autocomplete="tel"><br><br>
+      <input id="custAddr" placeholder="Full delivery address" autocomplete="street-address"><br><br>
+      <input id="txnId" placeholder="bKash Transaction ID (optional — enter to get 5% off)" oninput="updateDiscountPreview()"><br><br>
+      <button id="placeOrderBtn" onclick="placeOrder()" style="width:100%;">Place Order</button>
+      <p class="msg" id="checkoutMsg"></p>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-brand">70S Fragrance</div>
+    <p>Signature scents, decanted with care.</p>
+    <p style="margin-top:10px;">&copy; 2026 70S Fragrance. All rights reserved.</p>
+  </footer>
+
+  <script src="cart.js"></script>
+  <script>
+    let products = [];
+    let cart = loadCartGlobal();
+
+    function toggleSearch() {
+      const el = document.getElementById("searchBar");
+      el.style.display = el.style.display === "block" ? "none" : "block";
+      if (el.style.display === "block") document.getElementById("searchInput").focus();
+    }
+
+    async function loadProducts() {
+      const container = document.getElementById("productList");
+      try {
+        const res = await fetch("/api/products");
+        if (!res.ok) throw new Error();
+        products = await res.json();
+      } catch (e) {
+        container.innerHTML = "<p style='text-align:center; grid-column:1/-1; color:#d87f7f;'>Could not load fragrances. <a href='#' onclick='loadProducts(); return false;'>Try again</a>.</p>";
+        return;
+      }
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("gender")) document.getElementById("filterGender").value = params.get("gender");
+      if (params.get("season")) document.getElementById("filterSeason").value = params.get("season");
+      applyFilters();
+      renderCart();
+    }
+
+    function getCheapestPrice(p) { return Math.min(...p.sizes.map(s => s[1])); }
+
+    function applyFilters() {
+      let list = [...products];
+      const gender = document.getElementById("filterGender").value;
+      const season = document.getElementById("filterSeason").value;
+      const sort = document.getElementById("filterSort").value;
+      const inStockOnly = document.getElementById("filterInStock").checked;
+      const search = (document.getElementById("searchInput") || {value:""}).value.trim().toLowerCase();
+      if (gender) list = list.filter(p => p.gender === gender || p.gender === "Unisex");
+      if (season) list = list.filter(p => p.season === season);
+      if (inStockOnly) list = list.filter(p => p.in_stock);
+      if (search) list = list.filter(p => p.name.toLowerCase().includes(search));
+      if (sort === "low-high") list.sort((a, b) => getCheapestPrice(a) - getCheapestPrice(b));
+      if (sort === "high-low") list.sort((a, b) => getCheapestPrice(b) - getCheapestPrice(a));
+      renderProducts(list);
+    }
+
+    function renderProducts(list) {
+      document.getElementById("resultCount").textContent = "Showing " + list.length + " fragrance" + (list.length === 1 ? "" : "s");
+      const container = document.getElementById("productList");
+      if (list.length === 0) { container.innerHTML = "<p style='text-align:center; grid-column:1/-1; color:#9a8974;'>No fragrances match these filters.</p>"; return; }
+      let html = "";
+      for (const p of list) {
+        const realIndex = products.indexOf(p);
+        let options = "";
+        for (let s = 0; s < p.sizes.length; s++) options += `<option value="${s}">${p.sizes[s][0]}ml - ${p.sizes[s][1]} Tk</option>`;
+        const imgTag = p.image ? `<img src="${p.image}" alt="${p.name}">` : `&#127871;`;
+        const stockBadge = p.in_stock ? "" : `<p style="color:#d87f7f; font-size:0.75rem;">Out of Stock</p>`;
+        html += `<div class="card"><div class="product-img">${imgTag}</div><div class="card-body"><h3>${p.name}</h3><p style="font-size:0.75rem; color:#9a8974;">${p.gender} · ${p.season}</p>${stockBadge}<select id="size-${realIndex}" ${!p.in_stock?"disabled":""}>${options}</select><button onclick="addToCart(${realIndex})" ${!p.in_stock?"disabled":""}>${p.in_stock?"Add to Cart":"Unavailable"}</button></div></div>`;
+      }
+      container.innerHTML = html;
+    }
+
+    function addToCart(index) {
+      const p = products[index];
+      const sizeIndex = document.getElementById("size-" + index).value;
+      const chosen = p.sizes[sizeIndex];
+      cart.push({ name: p.name, ml: chosen[0], price: chosen[1] });
+      saveCartGlobal(cart);
+      updateNavCartCount();
+      renderCart();
+      showToast("Added: " + p.name + " (" + chosen[0] + "ml)", "View cart", "#cartBox");
+    }
+
+    function removeFromCart(i) {
+      cart.splice(i, 1);
+      saveCartGlobal(cart);
+      updateNavCartCount();
+      renderCart();
+    }
+
+    function calcDiscount(subtotal, hasTxn) {
+      let pct = 0;
+      if (hasTxn) pct += 5;
+      if (subtotal >= 2000) pct += 5;
+      const discount = Math.round(subtotal * pct / 100);
+      return { pct, discount, final: subtotal - discount };
+    }
+
+    function updateDiscountPreview() {
+      const subtotal = cart.reduce((s, i) => s + i.price, 0);
+      const hasTxn = document.getElementById("txnId").value.trim().length > 0;
+      const box = document.getElementById("discountBox");
+      if (subtotal === 0) { box.style.display = "none"; return; }
+      const { pct, discount, final } = calcDiscount(subtotal, hasTxn);
+      let lines = [];
+      if (hasTxn) lines.push('<span class="active">✓ 5% instant payment discount</span>');
+      else lines.push('Enter your bKash Transaction ID above to get <b>5% off</b>');
+      if (subtotal >= 2000) lines.push('<span class="active">✓ 5% discount for orders over 2000 Tk</span>');
+      else lines.push('Add more to reach 2000 Tk and get another <b>5% off</b>');
+      if (pct > 0) lines.push(`<b>You save ${discount} Tk — Final total: ${final} Tk</b>`);
+      box.innerHTML = lines.join("<br>");
+      box.style.display = "block";
+    }
+
+    function renderCart() {
+      const cartContainer = document.getElementById("cartList");
+      let html = "";
+      let total = 0;
+      for (let i = 0; i < cart.length; i++) {
+        html += `<div class="cart-item"><span>${cart[i].name} (${cart[i].ml}ml)</span><span>${cart[i].price} Tk <button onclick="removeFromCart(${i})">X</button></span></div>`;
+        total += cart[i].price;
+      }
+      cartContainer.innerHTML = html;
+      document.getElementById("cartTotal").textContent = "Total: " + total + " Tk";
+      updateDiscountPreview();
+    }
+
+    async function placeOrder() {
+      const msg = document.getElementById("checkoutMsg");
+      const btn = document.getElementById("placeOrderBtn");
+      if (cart.length === 0) { msg.textContent = "Your cart is empty."; return; }
+      const custName = document.getElementById("custName").value.trim();
+      const custEmail = document.getElementById("custEmail").value.trim();
+      const custPhone = document.getElementById("custPhone").value.trim();
+      const custAddr = document.getElementById("custAddr").value.trim();
+      const txnId = document.getElementById("txnId").value.trim();
+      if (!custName || !custAddr) { msg.textContent = "Please fill in your name and delivery address."; return; }
+      const digits = custPhone.replace(/[\s\-().]/g, "").replace(/^\+?88(?=01)/, "");
+      if (!/^01[3-9]\d{8}$/.test(digits)) { msg.textContent = "Please type a valid mobile number, like 01712345678."; return; }
+      btn.disabled = true;
+      btn.textContent = "Placing your order...";
+      msg.textContent = "";
+      try {
+        const res = await fetch("/api/place-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cart, custName, custEmail, custPhone, custAddr, txnId })
+        });
+        if (res.status === 401) {
+          msg.textContent = "Please log in first. Your cart is saved. Redirecting...";
+          setTimeout(() => { window.location.href = "login.html?next=products.html"; }, 1500);
+          return;
+        }
+        const data = await res.json();
+        if (data.success) {
+          cart = []; saveCartGlobal(cart);
+          window.location.href = "receipt.html?id=" + data.orderId;
+          return;
+        }
+        msg.textContent = data.message;
+      } catch (e) {
+        msg.textContent = "Network problem. Please check your internet and try again.";
+      }
+      btn.disabled = false;
+      btn.textContent = "Place Order";
+    }
+
+    loadProducts();
+  </script>
+</body>
+</html>
