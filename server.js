@@ -185,8 +185,10 @@ app.post("/api/place-order", async (req, res) => {
     items.push({ name: p.name, ml: size[0], price: size[1] });
   }
 
+  const delivery = Math.max(0, parseInt(req.body.delivery) || 0);
   const subtotal = items.reduce((s, i) => s + i.price, 0);
-  const { pct, discount, final: total } = calcDiscount(subtotal, !!txn);
+  const { pct, discount, final: discountedTotal } = calcDiscount(subtotal, !!txn);
+  const total = discountedTotal + delivery;
 
   const orderResult = await pool.query(
     `INSERT INTO orders (user_id, total, status, tran_id, cust_name, cust_email, cust_phone, cust_addr)
@@ -199,11 +201,12 @@ app.post("/api/place-order", async (req, res) => {
   }
 
   const itemLines = items.map(i => `- ${i.name} (${i.ml}ml) — ${i.price} Tk`).join("\n");
-  const discountLine = pct > 0 ? `\nDiscount: ${pct}% off = −${discount} Tk\nFinal total: ${total} Tk` : "";
-  const message = `NEW ORDER #${orderId}\n\n${itemLines}\n\nSubtotal: ${subtotal} Tk${discountLine}\n\nName: ${name}\nPhone: ${phone}\nAddress: ${addr}\nEmail: ${mail || "-"}\nbKash Txn ID: ${txn || "not provided yet"}`;
+  const discountLine = pct > 0 ? `\nDiscount: ${pct}% off = −${discount} Tk` : "";
+  const deliveryLine = `\nDelivery: ${delivery} Tk`;
+  const message = `NEW ORDER #${orderId}\n\n${itemLines}\n\nSubtotal: ${subtotal} Tk${discountLine}${deliveryLine}\nFinal total: ${total} Tk\n\nName: ${name}\nPhone: ${phone}\nAddress: ${addr}\nEmail: ${mail || "-"}\nbKash Txn ID: ${txn || "not provided yet"}`;
   notifyOwner(message);
 
-  res.json({ success: true, orderId, total, subtotal, discount, pct, bkashNumber: BKASH_NUMBER });
+  res.json({ success: true, orderId, total, subtotal, discount, pct, delivery, bkashNumber: BKASH_NUMBER });
 });
 
 app.get("/api/admin/check", async (req, res) => {

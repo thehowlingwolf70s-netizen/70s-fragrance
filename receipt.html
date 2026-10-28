@@ -63,16 +63,20 @@
       const waText = "Hi 70S Fragrance, I placed order #" + o.id + " (" + o.total + " Tk). My bKash transaction ID is: ";
       const waLink = "https://wa.me/" + WHATSAPP_NUMBER + "?text=" + encodeURIComponent(waText);
 
-      // reconstruct discount info from tran_id and items
+
+      const discountRow = discPct > 0
+        ? `<div class="discountrow"><span>Discount (${discPct}% off)</span><span>−${discAmt} Tk</span></div>`
+        : "";
+      const deliveryRow = delivery > 0
+        ? `<div class="discountrow" style="color:#c9b8a5;"><span>Delivery charge</span><span>${delivery} Tk</span></div>`
+        : "";
+
+      // rebuild totals
       const subtotal = o.items.reduce((s, i) => s + Number(i.price), 0);
       const hasTxn = !!(o.tran_id && o.tran_id.trim());
-      let discountPct = 0;
-      if (hasTxn) discountPct += 5;
-      if (subtotal >= 2000) discountPct += 5;
-      const discountAmt = Math.round(subtotal * discountPct / 100);
-      const discountRow = discountPct > 0
-        ? `<div class="discountrow"><span>Discount (${discountPct}% off)</span><span>−${discountAmt} Tk</span></div>`
-        : "";
+      let discPct = 0; if (hasTxn) discPct += 5; if (subtotal >= 2000) discPct += 5;
+      const discAmt = Math.round(subtotal * discPct / 100);
+      const delivery = o.total - (subtotal - discAmt);
 
       let items = "";
       for (const it of o.items) items += `<div class="row"><span>${esc(it.product_name)} (${esc(it.ml)}ml)</span><span>${esc(it.price)} Tk</span></div>`;
@@ -87,7 +91,7 @@
             <span class="status-${esc(o.status)}"><span class="status-pill">${esc(String(o.status).toUpperCase())}</span></span>
           </div>
           ${items}
-          ${discountRow}
+          ${discountRow}${deliveryRow}
           <div class="totalrow"><span>Total</span><span>${esc(o.total)} Tk</span></div>
           <h3>Delivery details</h3>
           <p>${esc(o.cust_name)}<br>${esc(o.cust_phone)}<br>${esc(o.cust_addr)}</p>

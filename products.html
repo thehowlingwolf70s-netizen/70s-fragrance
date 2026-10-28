@@ -71,20 +71,8 @@
       <h2>Your Cart</h2>
       <div id="cartList"></div>
       <div class="total" id="cartTotal">Total: 0 Tk</div>
-
       <div id="discountBox" class="discount-box" style="display:none;"></div>
-
-      <div class="msg" style="background:#100608; border:1px solid #3a2a20; border-radius:6px; padding:12px; text-align:left; margin-bottom:16px;">
-        Send your total via bKash (Send Money) to <b style="color:#e8c968;">01959350071</b>, then enter the Transaction ID below to get <b style="color:#e8c968;">5% off</b>.
-      </div>
-
-      <h3>Delivery Details</h3>
-      <input id="custName" placeholder="Full Name" autocomplete="name"><br><br>
-      <input id="custEmail" type="email" placeholder="Email (optional)" autocomplete="email"><br><br>
-      <input id="custPhone" type="tel" placeholder="Mobile number (e.g. 01712345678)" autocomplete="tel"><br><br>
-      <input id="custAddr" placeholder="Full delivery address" autocomplete="street-address"><br><br>
-      <input id="txnId" placeholder="bKash Transaction ID (optional — enter to get 5% off)" oninput="updateDiscountPreview()"><br><br>
-      <button id="placeOrderBtn" onclick="placeOrder()" style="width:100%;">Place Order</button>
+      <button id="checkoutBtn" onclick="goCheckout()" style="width:100%;margin-top:16px;">Proceed to Checkout</button>
       <p class="msg" id="checkoutMsg"></p>
     </div>
   </div>
@@ -212,44 +200,12 @@
       updateDiscountPreview();
     }
 
-    async function placeOrder() {
-      const msg = document.getElementById("checkoutMsg");
-      const btn = document.getElementById("placeOrderBtn");
-      if (cart.length === 0) { msg.textContent = "Your cart is empty."; return; }
-      const custName = document.getElementById("custName").value.trim();
-      const custEmail = document.getElementById("custEmail").value.trim();
-      const custPhone = document.getElementById("custPhone").value.trim();
-      const custAddr = document.getElementById("custAddr").value.trim();
-      const txnId = document.getElementById("txnId").value.trim();
-      if (!custName || !custAddr) { msg.textContent = "Please fill in your name and delivery address."; return; }
-      const digits = custPhone.replace(/[\s\-().]/g, "").replace(/^\+?88(?=01)/, "");
-      if (!/^01[3-9]\d{8}$/.test(digits)) { msg.textContent = "Please type a valid mobile number, like 01712345678."; return; }
-      btn.disabled = true;
-      btn.textContent = "Placing your order...";
-      msg.textContent = "";
-      try {
-        const res = await fetch("/api/place-order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cart, custName, custEmail, custPhone, custAddr, txnId })
-        });
-        if (res.status === 401) {
-          msg.textContent = "Please log in first. Your cart is saved. Redirecting...";
-          setTimeout(() => { window.location.href = "login.html?next=products.html"; }, 1500);
-          return;
-        }
-        const data = await res.json();
-        if (data.success) {
-          cart = []; saveCartGlobal(cart);
-          window.location.href = "receipt.html?id=" + data.orderId;
-          return;
-        }
-        msg.textContent = data.message;
-      } catch (e) {
-        msg.textContent = "Network problem. Please check your internet and try again.";
+    function goCheckout() {
+      if (cart.length === 0) {
+        document.getElementById("checkoutMsg").textContent = "Your cart is empty.";
+        return;
       }
-      btn.disabled = false;
-      btn.textContent = "Place Order";
+      window.location.href = "checkout.html";
     }
 
     loadProducts();
