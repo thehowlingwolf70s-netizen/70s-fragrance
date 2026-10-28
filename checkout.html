@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Checkout — 70S Fragrance</title>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0507">
+  <link rel="icon" href="/logo.png">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .checkout-box{max-width:560px;margin:0 auto 40px;background:linear-gradient(180deg,#170d0f,#120a0b);border:1px solid #2e2019;border-radius:12px;padding:28px}
+    .checkout-box h2{margin:0 0 20px;font-family:'Cormorant Garamond',serif;color:#e8c968;font-size:1.4rem}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+    .field label{font-size:0.82rem;color:#9a8974}
+    .field input,.field select{margin:0}
+    .order-summary{max-width:560px;margin:0 auto 20px;background:#100608;border:1px solid #2e2019;border-radius:10px;padding:20px}
+    .order-summary h3{margin:0 0 14px;font-size:1rem;color:#c9b8a5}
+    .sum-row{display:flex;justify-content:space-between;padding:6px 0;font-size:0.88rem;border-bottom:1px solid #1e1012;color:#c9b8a5}
+    .sum-row:last-child{border-bottom:none}
+    .sum-total{display:flex;justify-content:space-between;padding:12px 0 0;font-size:1.1rem;color:#e8c968;font-family:'Cormorant Garamond',serif;font-weight:600}
+    .sum-discount{display:flex;justify-content:space-between;padding:6px 0;font-size:0.88rem;color:#7fd88f}
+    .sum-delivery{display:flex;justify-content:space-between;padding:6px 0;font-size:0.88rem;color:#c9b8a5}
+    .bkash-box{background:#100608;border:1px solid #3a2a20;border-radius:8px;padding:14px;margin:16px 0;font-size:0.88rem;color:#c9b8a5;line-height:1.7}
+    .bkash-box b{color:#e8c968}
+    @media(max-width:480px){.row2{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="announce-bar">5% off if you pay now · 5% off on orders over 2000 Tk</div>
+  <header>
+    <div class="nav-wrap">
+      <img class="logo" src="logo.png" alt="70S Fragrance">
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="products.html">Shop</a>
+        <a href="orders.html">My Orders</a>
+      </nav>
+      <div class="nav-icons">
+        <a href="login.html" title="Account">&#128100;</a>
+        <a href="products.html#cartBox" title="Cart">&#128717;<span class="cart-badge" id="navCartCount">0</span></a>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <h1 style="text-align:center;">Checkout</h1>
+
+    <div class="order-summary" id="orderSummary"></div>
+
+    <div class="checkout-box">
+      <h2>Delivery Details</h2>
+
+      <div class="row2">
+        <div class="field">
+          <label>First Name *</label>
+          <input id="firstName" placeholder="Ahmed" autocomplete="given-name">
+        </div>
+        <div class="field">
+          <label>Last Name *</label>
+          <input id="lastName" placeholder="Khan" autocomplete="family-name">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Mobile Number *</label>
+        <input id="phone" type="tel" placeholder="01712345678" autocomplete="tel">
+      </div>
+
+      <div class="field">
+        <label>Email (optional)</label>
+        <input id="email" type="email" placeholder="you@email.com" autocomplete="email">
+      </div>
+
+      <div class="field">
+        <label>City / District *</label>
+        <select id="city" onchange="onCityChange()">
+          <option value="">Select your city</option>
+          <option value="Chittagong">Chittagong</option>
+          <option value="Other">Other city / district</option>
+        </select>
+      </div>
+
+      <div class="field" id="otherCityField" style="display:none;">
+        <label>City / District name *</label>
+        <input id="otherCity" placeholder="e.g. Dhaka, Sylhet, Rajshahi">
+      </div>
+
+      <div class="field">
+        <label>Full Address *</label>
+        <input id="address" placeholder="House, road, area" autocomplete="street-address">
+      </div>
+
+      <div class="field">
+        <label>Post Code / Thana *</label>
+        <input id="postCode" placeholder="e.g. 4000 or Kotwali">
+      </div>
+
+      <div class="bkash-box">
+        Send payment via bKash (Send Money) to <b>01959350071</b> before or right after placing your order.<br>
+        Enter your bKash Transaction ID below to get <b>5% off instantly</b>.
+      </div>
+
+      <div class="field">
+        <label>bKash Transaction ID (optional — enter to get 5% off)</label>
+        <input id="txnId" placeholder="e.g. 8A3KD9F2LM" oninput="updateSummary()">
+      </div>
+
+      <button id="placeBtn" onclick="placeOrder()" style="width:100%;margin-top:8px;">Place Order</button>
+      <p class="msg" id="checkoutMsg"></p>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-brand">70S Fragrance</div>
+    <p>Signature scents, decanted with care.</p>
+    <p style="margin-top:10px;">&copy; 2026 70S Fragrance. All rights reserved.</p>
+  </footer>
+
+  <script src="cart.js"></script>
+  <script>
+    const DELIVERY = { Chittagong: 80, Other: 130 };
+
+    let cart = loadCartGlobal();
+
+    if (cart.length === 0) {
+      window.location.href = "products.html";
+    }
+
+    function getDeliveryCharge() {
+      const city = document.getElementById("city").value;
+      return city ? DELIVERY[city] || 130 : 0;
+    }
+
+    function calcDiscount(subtotal, hasTxn) {
+      let pct = 0;
+      if (hasTxn) pct += 5;
+      if (subtotal >= 2000) pct += 5;
+      const discount = Math.round(subtotal * pct / 100);
+      return { pct, discount, final: subtotal - discount };
+    }
+
+    function onCityChange() {
+      const city = document.getElementById("city").value;
+      document.getElementById("otherCityField").style.display = city === "Other" ? "block" : "none";
+      updateSummary();
+    }
+
+    function updateSummary() {
+      const subtotal = cart.reduce((s, i) => s + i.price, 0);
+      const hasTxn = document.getElementById("txnId").value.trim().length > 0;
+      const { pct, discount, final } = calcDiscount(subtotal, hasTxn);
+      const delivery = getDeliveryCharge();
+      const total = final + delivery;
+
+      let html = "<h3>Order Summary</h3>";
+      for (const item of cart) {
+        html += `<div class="sum-row"><span>${item.name} (${item.ml}ml)</span><span>${item.price} Tk</span></div>`;
+      }
+      html += `<div class="sum-row" style="margin-top:6px;"><span>Subtotal</span><span>${subtotal} Tk</span></div>`;
+      if (pct > 0) {
+        html += `<div class="sum-discount"><span>Discount (${pct}% off)</span><span>−${discount} Tk</span></div>`;
+      }
+      if (delivery > 0) {
+        const cityLabel = document.getElementById("city").value;
+        html += `<div class="sum-delivery"><span>Delivery${cityLabel ? " (" + (cityLabel === "Other" ? (document.getElementById("otherCity").value || "Other") : cityLabel) + ")" : ""}</span><span>${delivery} Tk</span></div>`;
+      } else {
+        html += `<div class="sum-delivery" style="color:#9a8974;"><span>Delivery charge</span><span>Select city above</span></div>`;
+      }
+      html += `<div class="sum-total"><span>Total</span><span>${delivery > 0 ? total : "—"} Tk</span></div>`;
+      document.getElementById("orderSummary").innerHTML = html;
+    }
+
+    async function placeOrder() {
+      const msg = document.getElementById("checkoutMsg");
+      const btn = document.getElementById("placeBtn");
+
+      const firstName = document.getElementById("firstName").value.trim();
+      const lastName = document.getElementById("lastName").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const city = document.getElementById("city").value;
+      const otherCity = document.getElementById("otherCity").value.trim();
+      const address = document.getElementById("address").value.trim();
+      const postCode = document.getElementById("postCode").value.trim();
+      const txnId = document.getElementById("txnId").value.trim();
+
+      if (!firstName || !lastName) { msg.textContent = "Please enter your first and last name."; return; }
+      const digits = phone.replace(/[\s\-().]/g, "").replace(/^\+?88(?=01)/, "");
+      if (!/^01[3-9]\d{8}$/.test(digits)) { msg.textContent = "Please enter a valid mobile number like 01712345678."; return; }
+      if (!city) { msg.textContent = "Please select your city."; return; }
+      if (city === "Other" && !otherCity) { msg.textContent = "Please enter your city name."; return; }
+      if (!address) { msg.textContent = "Please enter your delivery address."; return; }
+      if (!postCode) { msg.textContent = "Please enter your post code or thana."; return; }
+
+      const cityName = city === "Other" ? otherCity : city;
+      const delivery = getDeliveryCharge();
+      const custName = firstName + " " + lastName;
+      const custAddr = address + ", " + postCode + ", " + cityName;
+
+      btn.disabled = true;
+      btn.textContent = "Placing your order...";
+      msg.textContent = "";
+
+      try {
+        const res = await fetch("/api/place-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cart, custName, custEmail: email, custPhone: phone, custAddr, txnId, delivery })
+        });
+
+        if (res.status === 401) {
+          msg.textContent = "Please log in first. Your cart is saved. Redirecting...";
+          setTimeout(() => { window.location.href = "login.html?next=checkout.html"; }, 1500);
+          return;
+        }
+
+        const data = await res.json();
+        if (data.success) {
+          cart = []; saveCartGlobal(cart);
+          window.location.href = "receipt.html?id=" + data.orderId;
+          return;
+        }
+        msg.textContent = data.message;
+      } catch (e) {
+        msg.textContent = "Network problem. Please check your internet and try again.";
+      }
+
+      btn.disabled = false;
+      btn.textContent = "Place Order";
+    }
+
+    updateSummary();
+  </script>
+</body>
+</html>
