@@ -409,16 +409,18 @@
   <!-- VIDEO SLOT -->
   <div class="video-slot">
     <!--
-      WHEN YOUR VIDEO IS READY:
-      1. Upload your video file to your project folder (e.g. hero-video.mp4)
-      2. Push it to GitHub
-      3. Replace the div.video-placeholder below with:
-         <video autoplay muted loop playsinline src="hero-video.mp4"></video>
+      TO ADD YOUR VIDEO LATER:
+      Option A (file): replace the iframe below with:
+        <video autoplay muted loop playsinline src="hero-video.mp4"></video>
+      Option B (YouTube): replace YOUR_VIDEO_ID with the ID from your YouTube link
     -->
-    <div class="video-placeholder">
-      <div class="vp-icon">&#127909;</div>
-      <p>Your video goes here</p>
-    </div>
+    <iframe
+      src="https://www.youtube.com/embed/YOUR_VIDEO_ID?autoplay=1&mute=1&loop=1&playlist=YOUR_VIDEO_ID&controls=0&showinfo=0&rel=0"
+      frameborder="0"
+      allow="autoplay; encrypted-media"
+      allowfullscreen
+      style="width:100%;min-height:70vh;display:block;border:none;">
+    </iframe>
     <div class="video-overlay"></div>
     <div class="video-text">
       <div class="eyebrow">EST. 2024 &nbsp;·&nbsp; CHITTAGONG, BANGLADESH</div>
