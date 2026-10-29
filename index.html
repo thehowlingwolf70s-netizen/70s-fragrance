@@ -408,19 +408,9 @@
 
   <!-- VIDEO SLOT -->
   <div class="video-slot">
-    <!--
-      TO ADD YOUR VIDEO LATER:
-      Option A (file): replace the iframe below with:
-        <video autoplay muted loop playsinline src="hero-video.mp4"></video>
-      Option B (YouTube): replace YOUR_VIDEO_ID with the ID from your YouTube link
-    -->
-    <iframe
-      src="https://www.youtube.com/embed/YOUR_VIDEO_ID?autoplay=1&mute=1&loop=1&playlist=YOUR_VIDEO_ID&controls=0&showinfo=0&rel=0"
-      frameborder="0"
-      allow="autoplay; encrypted-media"
-      allowfullscreen
-      style="width:100%;min-height:70vh;display:block;border:none;">
-    </iframe>
+    <video autoplay muted loop playsinline style="width:100%;min-height:70vh;display:block;object-fit:cover;">
+      <source src="hero-video.mp4" type="video/mp4">
+    </video>
     <div class="video-overlay"></div>
     <div class="video-text">
       <div class="eyebrow">EST. 2024 &nbsp;·&nbsp; CHITTAGONG, BANGLADESH</div>
