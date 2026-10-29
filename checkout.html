@@ -208,11 +208,7 @@
           body: JSON.stringify({ cart, custName, custEmail: email, custPhone: phone, custAddr, txnId, delivery })
         });
 
-        if (res.status === 401) {
-          msg.textContent = "Please log in first. Your cart is saved. Redirecting...";
-          setTimeout(() => { window.location.href = "login.html?next=checkout.html"; }, 1500);
-          return;
-        }
+        // 401 no longer happens - guest checkout is allowed
 
         const data = await res.json();
         if (data.success) {

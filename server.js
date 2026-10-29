@@ -158,7 +158,8 @@ app.get("/api/orders/:id", async (req, res) => {
 });
 
 app.post("/api/place-order", async (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ success: false, message: "Please log in or create an account first. Your cart is saved." });
+  // Guests can order without an account. If logged in, order is saved to their account.
+  const userId = req.session.userId || null;
   const { cart, custName, custEmail, custPhone, custAddr, txnId } = req.body;
   if (!Array.isArray(cart) || cart.length === 0) return res.status(400).json({ success: false, message: "Cart is empty." });
   if (cart.length > 40) return res.status(400).json({ success: false, message: "Too many items. Please split into two orders." });
@@ -193,7 +194,7 @@ app.post("/api/place-order", async (req, res) => {
   const orderResult = await pool.query(
     `INSERT INTO orders (user_id, total, status, tran_id, cust_name, cust_email, cust_phone, cust_addr)
      VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7) RETURNING id`,
-    [req.session.userId, total, txn || null, name, mail || null, phone, addr]
+    [userId, total, txn || null, name, mail || null, phone, addr]
   );
   const orderId = orderResult.rows[0].id;
   for (const item of items) {
@@ -216,7 +217,7 @@ app.get("/api/admin/check", async (req, res) => {
 });
 
 app.get("/api/admin/orders", requireAdmin, async (req, res) => {
-  const { rows: orders } = await pool.query(`SELECT orders.*, users.name AS "accountName", users.email AS "accountEmail" FROM orders JOIN users ON orders.user_id = users.id ORDER BY orders.created_at DESC`);
+  const { rows: orders } = await pool.query(`SELECT orders.*, users.name AS "accountName", users.email AS "accountEmail" FROM orders LEFT JOIN users ON orders.user_id = users.id ORDER BY orders.created_at DESC`);
   const full = [];
   for (const o of orders) {
     const { rows: items } = await pool.query("SELECT * FROM order_items WHERE order_id = $1", [o.id]);
