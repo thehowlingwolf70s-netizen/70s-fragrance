@@ -2,26 +2,35 @@
 <html>
 <head>
   <title>Admin Panel — 70S Fragrance</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex"><link rel="icon" href="/logo.png">
+  <link rel="stylesheet" href="/style.css">
   <style>
-    .status-shipped { color: #7fb8d8; font-weight: 600; }
-    .status-delivered { color: #7fd88f; font-weight: 600; }
-    .small { font-size: 0.82rem; color: #9a8974; line-height: 1.7; }
-    .order-info { font-size: 0.88rem; line-height: 1.7; color: #c9b8a5; margin: 8px 0 12px; }
-    .status-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
-    .status-row select { width: auto; min-width: 150px; }
-    .toolbar { max-width: 900px; margin: 0 auto 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
-    .toolbar select { width: auto; min-width: 170px; }
+    .order-info{font-size:.88rem;line-height:1.7;color:#c9b8a5;margin:8px 0 12px}
+    .status-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+    .status-row select{width:auto;min-width:150px}
+    .status-row a{text-decoration:none}
+    .small{font-size:.82rem;color:#9a8974;line-height:1.7}
+    .panel-header{display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:#1c1010;border:1px solid #2e1f14;border-radius:4px;padding:16px 20px;user-select:none;margin-bottom:0}
+    .panel-header:hover{border-color:#7a6535}
+    .panel-title{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:.1em;color:#e8c968}
+    .panel-body{border:1px solid #2e1f14;border-top:none;border-radius:0 0 4px 4px;padding:16px;margin-bottom:32px}
   </style>
 </head>
 <body>
-  <div class="announce-bar">Free delivery on orders over 2000 Tk</div>
+  <div class="ticker-wrap"><div class="ticker-track">
+    <span>ADMIN PANEL</span><span class="ticker-sep">✦</span>
+    <span>70S FRAGRANCE</span><span class="ticker-sep">✦</span>
+    <span>ADMIN PANEL</span><span class="ticker-sep">✦</span>
+    <span>70S FRAGRANCE</span><span class="ticker-sep">✦</span>
+  </div></div>
   <header>
     <div class="nav-wrap">
       <img class="logo" src="logo.png" alt="70S Fragrance">
       <nav>
         <a href="index.html">Home</a>
         <a href="products.html">Shop</a>
+        <a href="contact.html">Info</a>
         <a href="orders.html">My Orders</a>
       </nav>
       <div class="nav-icons">
@@ -34,51 +43,63 @@
   <div class="container">
     <h1 style="text-align:center;">Admin Panel</h1>
 
-    <div id="deniedMsg" style="display:none; text-align:center;">
-      <p>Access denied — admin only. <a href="login.html">Log in</a> with your admin account, then open this page again.</p>
+    <div id="deniedMsg" style="display:none;text-align:center;">
+      <p>Access denied. <a href="login.html">Log in</a> with your admin account first.</p>
     </div>
 
     <div id="adminArea" style="display:none;">
 
-      <h2 style="text-align:center;">Orders</h2>
-      <div class="toolbar">
-        <span class="small" id="orderCount"></span>
-        <select id="orderFilter" onchange="renderOrders()">
-          <option value="">All orders</option>
-          <option value="pending">Pending</option>
-          <option value="paid">Paid</option>
-          <option value="shipped">Shipped</option>
-          <option value="delivered">Delivered</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
+      <!-- ORDERS — collapsible -->
+      <div>
+        <div class="panel-header" onclick="toggleOrders()">
+          <div>
+            <span class="panel-title">Orders</span>
+            <span class="small" id="orderCount" style="margin-left:12px;"></span>
+          </div>
+          <span id="ordersIcon" style="color:#c9a84c;font-size:1.1rem;">▼ Show Orders</span>
+        </div>
+        <div id="ordersPanel" style="display:none;" class="panel-body">
+          <select id="orderFilter" onchange="renderOrders()" style="width:auto;min-width:180px;margin-bottom:14px;">
+            <option value="">All orders</option>
+            <option value="pending">Pending</option>
+            <option value="paid">Paid</option>
+            <option value="shipped">Shipped</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <div id="orderList"></div>
+        </div>
       </div>
-      <div id="orderList"></div>
 
-      <div class="form-box" id="productForm" style="margin-top:40px;">
-        <h2 id="formTitle">Add Product</h2>
-        <input id="prodName" placeholder="Product name"><br><br>
-        <input id="prodSizes" placeholder="1.5:230,3:420,5:660,10:1180,15:1690,30:3100"><br><br>
-        <input id="prodImage" placeholder="images/versace-eros.jpeg (optional)"><br><br>
-        <select id="prodSeason">
+      <!-- ADD / EDIT PRODUCT -->
+      <div class="panel-header" onclick="toggleProducts()" style="margin-top:12px;">
+        <span class="panel-title" id="formTitle">Add Product</span>
+        <span id="productsIcon" style="color:#c9a84c;font-size:1.1rem;">▼ Show Form</span>
+      </div>
+      <div id="productsPanel" style="display:none;" class="panel-body">
+        <input id="prodName" placeholder="Product name" style="margin-bottom:10px;"><br>
+        <input id="prodSizes" placeholder="1.5:230,3:420,5:660,10:1180,15:1690,30:3100" style="margin-bottom:10px;"><br>
+        <input id="prodImage" placeholder="images/versace-eros.jpeg (optional)" style="margin-bottom:10px;"><br>
+        <select id="prodSeason" style="margin-bottom:10px;">
           <option value="All Season">All Season</option>
           <option value="Summer">Summer</option>
           <option value="Winter">Winter</option>
-        </select><br><br>
-        <select id="prodGender">
+        </select><br>
+        <select id="prodGender" style="margin-bottom:10px;">
           <option value="Unisex">Unisex</option>
           <option value="For Him">For Him</option>
           <option value="For Her">For Her</option>
-        </select><br><br>
-        <label style="display:block; margin-bottom:12px; font-size:0.85rem; color:#b9a793;">
-          <input type="checkbox" id="prodInStock" checked style="width:auto; display:inline-block; margin-right:8px;">
-          In Stock
+        </select><br>
+        <label style="display:block;margin-bottom:12px;font-size:.85rem;color:#b9a793;">
+          <input type="checkbox" id="prodInStock" checked style="width:auto;display:inline-block;margin-right:8px;">In Stock
         </label>
         <button onclick="saveProduct()">Save Product</button>
-        <button id="cancelEditBtn" onclick="cancelEdit()" style="display:none;">Cancel Edit</button>
+        <button id="cancelEditBtn" onclick="cancelEdit()" style="display:none;background:#2e1f14;color:#c9b8a5;">Cancel Edit</button>
         <p class="msg" id="prodMsg"></p>
       </div>
 
-      <h2 style="text-align:center;">All Products</h2>
+      <!-- ALL PRODUCTS -->
+      <h2 style="text-align:center;margin-top:32px;">All Products</h2>
       <div id="productList"></div>
     </div>
   </div>
@@ -86,202 +107,195 @@
   <footer>
     <div class="footer-brand">70S Fragrance</div>
     <p>Signature scents, decanted with care.</p>
-    <p style="margin-top:10px;">&copy; 2026 70S Fragrance. All rights reserved.</p>
+    <p style="margin-top:6px;">&copy; 2026 70S Fragrance. All rights reserved.</p>
   </footer>
 
   <script src="cart.js"></script>
   <script>
-    const STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"];
+    const STATUSES = ["pending","paid","shipped","delivered","cancelled"];
+    const BKASH_NUMBER = "01959350071";
     let editingId = null;
     let allOrders = [];
     let adminProducts = [];
+    let ordersLoaded = false;
 
-    // Makes customer-typed text safe to show on the page.
-    function esc(s) {
-      return String(s == null ? "" : s)
-        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+    const WA_MSG = {
+      pending: o=>"we received your order #"+o.id+" ("+o.total+" Tk). Please send payment and reply with your transaction ID.",
+      paid: o=>"we received your payment for order #"+o.id+". We are preparing it now. Thank you!",
+      shipped: o=>"your order #"+o.id+" is on its way to you.",
+      delivered: o=>"your order #"+o.id+" has been delivered. Thank you for shopping with us!",
+      cancelled: o=>"your order #"+o.id+" has been cancelled. Message us if you have questions."
+    };
+    function waLink(o){
+      let ph=String(o.cust_phone||"").replace(/\D/g,"");
+      if(ph.startsWith("01"))ph="88"+ph;
+      const first=String(o.cust_name||"").trim().split(" ")[0]||"there";
+      const make=WA_MSG[o.status]||WA_MSG.pending;
+      return "https://wa.me/"+ph+"?text="+encodeURIComponent("Hello "+first+", this is 70S Fragrance - "+make(o));
     }
 
-    async function checkAdmin() {
-      const res = await fetch("/api/admin/check");
-      const data = await res.json();
-      if (!data.isAdmin) {
-        document.getElementById("deniedMsg").style.display = "block";
-        return;
-      }
-      document.getElementById("adminArea").style.display = "block";
-      loadOrders();
+    function toggleOrders(){
+      const p=document.getElementById("ordersPanel");
+      const i=document.getElementById("ordersIcon");
+      const open=p.style.display==="block";
+      p.style.display=open?"none":"block";
+      i.textContent=open?"▼ Show Orders":"▲ Hide Orders";
+      if(!open&&!ordersLoaded){loadOrders();ordersLoaded=true;}
+    }
+
+    function toggleProducts(){
+      const p=document.getElementById("productsPanel");
+      const i=document.getElementById("productsIcon");
+      const open=p.style.display==="block";
+      p.style.display=open?"none":"block";
+      i.textContent=open?"▼ Show Form":"▲ Hide Form";
+    }
+
+    async function checkAdmin(){
+      const res=await fetch("/api/admin/check");
+      const data=await res.json();
+      if(!data.isAdmin){document.getElementById("deniedMsg").style.display="block";return;}
+      document.getElementById("adminArea").style.display="block";
       loadProducts();
     }
 
-    // ---------- ORDERS ----------
-
-    async function loadOrders() {
-      const res = await fetch("/api/admin/orders");
-      allOrders = await res.json();
+    async function loadOrders(){
+      const res=await fetch("/api/admin/orders");
+      allOrders=await res.json();
       renderOrders();
     }
 
-    function renderOrders() {
-      const filter = document.getElementById("orderFilter").value;
-      const list = filter ? allOrders.filter(o => o.status === filter) : allOrders;
-      const pending = allOrders.filter(o => o.status === "pending").length;
-      document.getElementById("orderCount").textContent =
-        allOrders.length + " orders in total, " + pending + " waiting for payment check";
-
-      const container = document.getElementById("orderList");
-      if (list.length === 0) {
-        container.innerHTML = "<p style='text-align:center; color:#9a8974;'>No orders here.</p>";
-        return;
-      }
-
-      let html = "";
-      for (const o of list) {
-        let items = "";
-        for (const it of o.items) {
-          items += `<p class="small">${esc(it.product_name)} (${esc(it.ml)}ml) - ${esc(it.price)} Tk</p>`;
-        }
-        let options = "";
-        for (const s of STATUSES) {
-          options += `<option value="${s}" ${o.status === s ? "selected" : ""}>${s}</option>`;
-        }
-        html += `<div class="order-card">
+    function renderOrders(){
+      const filter=document.getElementById("orderFilter").value;
+      const list=filter?allOrders.filter(o=>o.status===filter):allOrders;
+      const pending=allOrders.filter(o=>o.status==="pending").length;
+      document.getElementById("orderCount").textContent=allOrders.length+" total · "+pending+" pending";
+      const container=document.getElementById("orderList");
+      if(list.length===0){container.innerHTML="<p style='color:#9a8974;'>No orders here.</p>";return;}
+      let html="";
+      for(const o of list){
+        let items="";
+        for(const it of o.items)items+=`<p class="small">${esc(it.product_name)} (${esc(it.ml)}ml) — ${esc(it.price)} Tk</p>`;
+        let opts="";
+        for(const s of STATUSES)opts+=`<option value="${s}"${o.status===s?" selected":""}>${s}</option>`;
+        html+=`<div class="order-card">
           <h3>Order #${esc(o.id)} — ${esc(o.total)} Tk — <span class="status-${esc(o.status)}">${esc(String(o.status).toUpperCase())}</span></h3>
           <p class="small">${esc(new Date(o.created_at).toLocaleString())}</p>
           <div class="order-info">
-            <b>Customer:</b> ${esc(o.cust_name)} · ${esc(o.cust_phone)}<br>
+            <b>Name:</b> ${esc(o.cust_name)} · <b>Phone:</b> ${esc(o.cust_phone)}<br>
             <b>Address:</b> ${esc(o.cust_addr)}<br>
-            <b>Email:</b> ${esc(o.cust_email || "-")}<br>
-            <b>bKash Transaction ID:</b> ${esc(o.tran_id || "not given yet")}<br>
-            <b>Account:</b> ${esc(o.accountName)} (${esc(o.accountEmail)})
+            <b>Transaction ID:</b> ${esc(o.tran_id||"not given")}<br>
+            <b>Account:</b> ${esc(o.accountName||"Guest")} (${esc(o.accountEmail||"-")})
           </div>
           ${items}
           <div class="status-row">
-            <select id="status-${esc(o.id)}">${options}</select>
-            <button onclick="updateStatus(${Number(o.id)})">Update status</button>
+            <select id="status-${esc(o.id)}">${opts}</select>
+            <button onclick="updateStatus(${Number(o.id)})">Update</button>
+            <a href="${esc(waLink(o))}" target="_blank" rel="noopener"><button type="button">WhatsApp</button></a>
+            <a href="receipt.html?id=${Number(o.id)}" target="_blank"><button type="button">Receipt</button></a>
             <span class="small" id="statusMsg-${esc(o.id)}"></span>
           </div>
         </div>`;
       }
-      container.innerHTML = html;
+      container.innerHTML=html;
     }
 
-    async function updateStatus(id) {
-      const status = document.getElementById("status-" + id).value;
-      const msg = document.getElementById("statusMsg-" + id);
-      msg.textContent = "Saving...";
-      const res = await fetch("/api/admin/orders/" + id + "/status", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        const order = allOrders.find(o => Number(o.id) === id);
-        if (order) order.status = status;
-        renderOrders();
-      } else {
-        msg.textContent = data.message || "Could not save. Please try again.";
-      }
+    async function updateStatus(id){
+      const status=document.getElementById("status-"+id).value;
+      const msg=document.getElementById("statusMsg-"+id);
+      msg.textContent="Saving...";
+      const res=await fetch("/api/admin/orders/"+id+"/status",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})});
+      const data=await res.json();
+      if(res.ok&&data.success){const o=allOrders.find(o=>Number(o.id)===id);if(o)o.status=status;renderOrders();}
+      else msg.textContent=data.message||"Error.";
     }
 
-    // ---------- PRODUCTS ----------
-
-    function parseSizes(text) {
-      const out = [];
-      for (const pair of text.split(",")) {
-        const parts = pair.trim().split(":");
-        const ml = parseFloat(parts[0]);
-        const price = parseInt(parts[1]);
-        if (parts.length !== 2 || isNaN(ml) || isNaN(price)) return null;
-        out.push([ml, price]);
+    function parseSizes(text){
+      const out=[];
+      for(const pair of text.split(",")){
+        const p=pair.trim().split(":");
+        const ml=parseFloat(p[0]),price=parseInt(p[1]);
+        if(p.length!==2||isNaN(ml)||isNaN(price))return null;
+        out.push([ml,price]);
       }
       return out;
     }
+    function sizesToText(sizes){return sizes.map(s=>s[0]+":"+s[1]).join(",");}
 
-    function sizesToText(sizes) {
-      return sizes.map(s => s[0] + ":" + s[1]).join(",");
+    async function saveProduct(){
+      const msg=document.getElementById("prodMsg");
+      const name=document.getElementById("prodName").value.trim();
+      const sizes=parseSizes(document.getElementById("prodSizes").value);
+      const image=document.getElementById("prodImage").value.trim();
+      const season=document.getElementById("prodSeason").value;
+      const gender=document.getElementById("prodGender").value;
+      const in_stock=document.getElementById("prodInStock").checked;
+      if(!name){msg.textContent="Please type the product name.";return;}
+      if(!sizes){msg.textContent="Sizes format: 3:420,5:660 etc.";return;}
+      const url=editingId?"/api/admin/products/"+editingId:"/api/admin/products";
+      const res=await fetch(url,{method:editingId?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,sizes,image,season,gender,in_stock})});
+      const data=await res.json();
+      if(res.ok&&data.success){msg.textContent=editingId?"Updated.":"Added.";cancelEdit(false);loadProducts();}
+      else msg.textContent=data.message||"Could not save.";
     }
 
-    async function saveProduct() {
-      const msg = document.getElementById("prodMsg");
-      const name = document.getElementById("prodName").value.trim();
-      const sizes = parseSizes(document.getElementById("prodSizes").value);
-      const image = document.getElementById("prodImage").value.trim();
-      const season = document.getElementById("prodSeason").value;
-      const gender = document.getElementById("prodGender").value;
-      const in_stock = document.getElementById("prodInStock").checked;
-
-      if (!name) { msg.textContent = "Please type the product name."; return; }
-      if (!sizes) { msg.textContent = "Sizes must look like 3:420,5:660 (ml, then a colon, then the price)."; return; }
-
-      const url = editingId ? "/api/admin/products/" + editingId : "/api/admin/products";
-      const res = await fetch(url, {
-        method: editingId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, sizes, image, season, gender, in_stock })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        msg.textContent = editingId ? "Product updated." : "Product added.";
-        cancelEdit(false);
-        loadProducts();
-      } else {
-        msg.textContent = data.message || "Could not save the product.";
-      }
+    function editProductAt(i){
+      const p=adminProducts[i];
+      editingId=p.id;
+      document.getElementById("formTitle").textContent="Edit: "+p.name;
+      document.getElementById("prodName").value=p.name;
+      document.getElementById("prodSizes").value=sizesToText(p.sizes);
+      document.getElementById("prodImage").value=p.image||"";
+      document.getElementById("prodSeason").value=p.season||"All Season";
+      document.getElementById("prodGender").value=p.gender||"Unisex";
+      document.getElementById("prodInStock").checked=!!p.in_stock;
+      document.getElementById("cancelEditBtn").style.display="inline";
+      document.getElementById("prodMsg").textContent="";
+      // open the form panel
+      document.getElementById("productsPanel").style.display="block";
+      document.getElementById("productsIcon").textContent="▲ Hide Form";
+      document.getElementById("productsPanel").scrollIntoView({behavior:"smooth"});
     }
 
-    function editProductAt(i) {
-      const p = adminProducts[i];
-      editingId = p.id;
-      document.getElementById("formTitle").textContent = "Edit Product";
-      document.getElementById("prodName").value = p.name;
-      document.getElementById("prodSizes").value = sizesToText(p.sizes);
-      document.getElementById("prodImage").value = p.image || "";
-      document.getElementById("prodSeason").value = p.season || "All Season";
-      document.getElementById("prodGender").value = p.gender || "Unisex";
-      document.getElementById("prodInStock").checked = !!p.in_stock;
-      document.getElementById("cancelEditBtn").style.display = "inline";
-      document.getElementById("prodMsg").textContent = "";
-      document.getElementById("productForm").scrollIntoView({ behavior: "smooth" });
+    function cancelEdit(clear=true){
+      editingId=null;
+      document.getElementById("formTitle").textContent="Add Product";
+      document.getElementById("prodName").value="";
+      document.getElementById("prodSizes").value="";
+      document.getElementById("prodImage").value="";
+      document.getElementById("prodSeason").value="All Season";
+      document.getElementById("prodGender").value="Unisex";
+      document.getElementById("prodInStock").checked=true;
+      document.getElementById("cancelEditBtn").style.display="none";
+      if(clear)document.getElementById("prodMsg").textContent="";
     }
 
-    function cancelEdit(clearMessage = true) {
-      editingId = null;
-      document.getElementById("formTitle").textContent = "Add Product";
-      document.getElementById("prodName").value = "";
-      document.getElementById("prodSizes").value = "";
-      document.getElementById("prodImage").value = "";
-      document.getElementById("prodSeason").value = "All Season";
-      document.getElementById("prodGender").value = "Unisex";
-      document.getElementById("prodInStock").checked = true;
-      document.getElementById("cancelEditBtn").style.display = "none";
-      if (clearMessage) document.getElementById("prodMsg").textContent = "";
-    }
-
-    async function deleteProductAt(i) {
-      const p = adminProducts[i];
-      if (!confirm("Delete " + p.name + "? This cannot be undone.")) return;
-      await fetch("/api/admin/products/" + p.id, { method: "DELETE" });
+    async function deleteProductAt(i){
+      const p=adminProducts[i];
+      if(!confirm("Delete "+p.name+"? Cannot be undone."))return;
+      await fetch("/api/admin/products/"+p.id,{method:"DELETE"});
       loadProducts();
     }
 
-    async function loadProducts() {
-      const res = await fetch("/api/products");
-      adminProducts = await res.json();
-      let html = "";
-      for (let i = 0; i < adminProducts.length; i++) {
-        const p = adminProducts[i];
-        html += `<div class="card">
+    async function loadProducts(){
+      const res=await fetch("/api/products");
+      adminProducts=await res.json();
+      let html="";
+      for(let i=0;i<adminProducts.length;i++){
+        const p=adminProducts[i];
+        html+=`<div class="card">
           <h3>${esc(p.name)}</h3>
-          <p style="font-size:0.8rem; color:#b9a793;">${esc(sizesToText(p.sizes))}</p>
-          <p style="font-size:0.75rem; color:#7a6a5a;">${esc(p.image || "no image")} | ${esc(p.season)} | ${esc(p.gender)} | ${p.in_stock ? "In Stock" : "Out of Stock"}</p>
-          <button onclick="editProductAt(${i})">Edit</button>
-          <button onclick="deleteProductAt(${i})">Delete</button>
+          <p style="font-size:.8rem;color:#b9a793;">${esc(sizesToText(p.sizes))}</p>
+          <p style="font-size:.75rem;color:#7a6a5a;">${esc(p.image||"no image")} · ${esc(p.season)} · ${esc(p.gender)} · ${p.in_stock?"In Stock":"Out of Stock"}</p>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button onclick="editProductAt(${i})">Edit</button>
+            <button onclick="deleteProductAt(${i})" style="background:#2e1f14;color:#d87f7f;">Delete</button>
+          </div>
         </div>`;
       }
-      document.getElementById("productList").innerHTML = `<div class="grid">${html}</div>`;
+      document.getElementById("productList").innerHTML=`<div class="grid">${html}</div>`;
     }
 
     checkAdmin();
